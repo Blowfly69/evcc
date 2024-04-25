@@ -82,6 +82,10 @@ type PhaseSwitcher interface {
 	Phases1p3p(phases int) error
 }
 
+type PhaseGetter interface {
+	GetPhases() (int, error)
+}
+
 // Diagnosis is a helper interface that allows to dump diagnostic data to console
 type Diagnosis interface {
 	Diagnose()
@@ -89,7 +93,7 @@ type Diagnosis interface {
 
 // ChargeTimer provides current charge cycle duration
 type ChargeTimer interface {
-	ChargingTime() (time.Duration, error)
+	ChargeDuration() (time.Duration, error)
 }
 
 // ChargeRater provides charged energy amount in kWh
