@@ -13,7 +13,7 @@ legendTitle = "Hvordan skal solenergi benyttes?"
 legendTopAutostart = "starter automatisk"
 legendTopName = "batteri understøttet opladning"
 legendTopSubline = "uden afbrydelser"
-modalTitle = "Batteri indstillinger"
+modalTitle = "Hus batteri"
 
 [batterySettings.bufferStart]
 above = "når den er over {soc}"
@@ -74,13 +74,35 @@ template = "Fabrikant"
 titleChoice = "Hvad ønsker du at tilføje?"
 validateSave = "Valider og gem"
 
+[config.options]
+
+[config.options.endianness]
+big = "big-endian"
+little = "little-endian"
+
+[config.options.schema]
+http = "HTTP (ikke-krypteret)"
+https = "HTTPS (krypteret)"
+
 [config.pv]
 titleAdd = "Tilføj solmåler"
 titleEdit = "Rediger solmåler"
 
+[config.section]
+general = "Generelle"
+system = "System"
+
 [config.site]
 cancel = "Afbryd"
 save = "Gem"
+
+[config.system]
+logs = "Log"
+restart = "Genstart"
+restartRequiredDescription = "Genstart for at se effekten"
+restartRequiredMessage = "Konfiguration er ændret"
+restartingDescription = "Vent venligst..."
+restartingMessage = "Genstarter evcc."
 
 [config.title]
 description = "Vises på hovedskærm og på browserfane"
@@ -126,8 +148,8 @@ tabTitle = "Live fællesskab"
 co2Saved = "{value} gemt"
 co2Title = "CO₂ Udledning"
 configurePriceCo2 = "Lær hvordan man indstiller pris og CO₂ data."
-footerLong = "{percent}% Solenergi"
-footerShort = "{percent}% Solenergi"
+footerLong = "{percent} Solenergi"
+footerShort = "{percent} Solenergi"
 modalTitle = "Oversigt over ladeenergi"
 moneySaved = "{value} gemt"
 percentGrid = "{grid} kWh elnettet"
@@ -195,6 +217,8 @@ discussionsButton = "GitHub diskussioner"
 documentationButton = "Dokumentation"
 issueButton = "Meld en fejl"
 issueDescription = "Fundet en mærkelig eller forkert adfærd?"
+logsButton = "Se logfil"
+logsDescription = "Check log for fejl"
 modalTitle = "Brug for hjælp?"
 primaryActions = "Noget fungerer ikke, som det skulle? Disse er gode steder at få hjælp."
 restartButton = "Genstart"
@@ -208,12 +232,24 @@ description = "Under normale omstændigheder bør genstart ikke være nødvendig
 disclaimer = "Bemærk: evcc afsluttes og har brug for at operativsystemet genstarter tjenesten."
 modalTitle = "Er du sikker på, at du vil genstarte?"
 
+[log]
+areaLabel = "Filtrer per område"
+areas = "Alle områder"
+download = "Hent hele log filen"
+levelLabel = "Filtrer på log niveau"
+noResults = "Ingen matchende logposter"
+search = "Søg"
+showAll = "Vis alle poster"
+title = "Log filer"
+update = "Opdater automatisk"
+
 [loginModal]
 cancel = "Afbryd"
 error = "Login mislykkedes"
 invalid = "Ugyldig adgangskode"
 login = "Log på"
 password = "Adgangskode"
+reset = "Nulstil adgangskode"
 title = "Godkendelse"
 
 [main]
@@ -317,7 +353,7 @@ co2Limit = "CO₂ grænse på {co2}"
 costLimitIgnore = "Den konfigurerede {limit} vil blive ignoreret i denne periode."
 currentPlan = "Aktiv plan"
 descriptionEnergy = "Hvornår skal {targetEnergy} være sendt til køretøjet?"
-descriptionSoc = "Hvornår skal køretøjet være opladet til {targetSoc} %?"
+descriptionSoc = "Hvornår skal køretøjet være opladet til {targetSoc}?"
 inactiveLabel = "Planlagt tid"
 modalTitle = "Sæt måltid"
 noActivePlan = "Ingen aktiv plan"
@@ -374,7 +410,7 @@ charging = "opladning"
 connected = "forbundet"
 disconnected = "afbrudt"
 ready = "parat"
-vehicleLimit = "Køretøjsgrænse: {soc}%"
+vehicleLimit = "Køretøjsgrænse: {soc}"
 
 [main.vehicleStatus]
 charging = "Oplader..."
@@ -383,7 +419,7 @@ cleanEnergyCharging = "Oplader med CO2 neutral energi: {co2} (limit {limit})"
 climating = "Forkonditionering registreret."
 connected = "Forbundet."
 disconnected = "Afbrudt."
-minCharge = "Minimum opladning til {soc} %."
+minCharge = "Minimum opladning til {soc}."
 pvDisable = "Ikke nok overskud. Pause i {remaining}..."
 pvEnable = "Overskud tilgængeligt. Starter om {remaining}..."
 scale1p = "Reducerer til 1-faset strøm i {remaining}..."
@@ -391,12 +427,12 @@ scale3p = "Øger til 3-faset opladning om {remaining}..."
 targetChargeActive = "Plan for ladning er aktiv..."
 targetChargePlanned = "Opladningsplan starter kl. {time}."
 targetChargeWaitForVehicle = "Plan for opladning er klar. Venter på køretøj..."
-unknown = ""
-vehicleLimitReached = "Køretøjsgrænsen {soc} % nået."
+vehicleLimitReached = "Køretøjsgrænsen {soc} nået."
 waitForVehicle = "Parat. Venter på køretøj ..."
 
 [notifications]
 dismissAll = "Afvis alle"
+logs = "Se hele log filen"
 modalTitle = "Underretninger"
 
 [offline]
@@ -451,6 +487,8 @@ vehicle = "Køretøj"
 
 [sessions.csv]
 chargedenergy = "Energi (kWh)"
+chargeduration = "Varighed"
+co2perkwh = "CO₂/kWh"
 created = "Oprettet"
 finished = "Færdig"
 identifier = "Identifikator"
@@ -458,6 +496,9 @@ loadpoint = "Ladepunkt"
 meterstart = "Målerstart (kWh)"
 meterstop = "Målerstop (kWh)"
 odometer = "Kilometertal (km)"
+price = "Pris"
+priceperkwh = "Pris/kWh"
+solarpercentage = "Sol (%)"
 vehicle = "Køretøj"
 
 [sessions.filter]
@@ -466,7 +507,12 @@ allVehicles = "alle køretøjer"
 filter = "Filter"
 
 [settings]
-title = "Generelle indstillinger"
+title = "Brugergrænseflade"
+
+[settings.fullscreen]
+enter = "Gå til fuldskærmsvisning"
+exit = "Afslut fuldskærm"
+label = "Fuldskærm"
 
 [settings.hiddenFeatures]
 label = "Experimentalt"

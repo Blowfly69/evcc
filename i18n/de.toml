@@ -72,6 +72,16 @@ template = "Hersteller"
 titleChoice = "Was möchtest du hinzufügen?"
 validateSave = "Überprüfen & speichern"
 
+[config.options]
+
+[config.options.endianness]
+big = "big-endian"
+little = "little-endian"
+
+[config.options.schema]
+http = "HTTP (unverschlüsselt)"
+https = "HTTPS (verschlüsselt)"
+
 [config.pv]
 titleAdd = "Zähler (PV) hinzufügen"
 titleEdit = "Zähler (PV) bearbeiten"
@@ -133,8 +143,8 @@ tabTitle = "Live-Community"
 co2Saved = "{value} eingespart"
 co2Title = "CO₂ Emisson"
 configurePriceCo2 = "Preis und CO₂-Emissionen konfigurieren"
-footerLong = "{percent}% Sonnenenergie"
-footerShort = "{percent}% Sonne"
+footerLong = "{percent} Sonnenenergie"
+footerShort = "{percent} Sonne"
 modalTitle = "Auswertung Ladeenergie"
 moneySaved = "{value} gespart"
 percentGrid = "{grid} kWh Netz"
@@ -153,6 +163,7 @@ total = "gesamt"
 
 [footer.sponsor]
 becomeSponsor = "Sponsor werden"
+becomeSponsorExtended = "Unterstütze uns direkt. Es gibt auch Sticker."
 confetti = "Lust auf Konfetti?"
 confettiPromise = "Es gibt auch Sticker und digitales Konfetti"
 sticker = "… oder evcc Sticker?"
@@ -160,6 +171,10 @@ supportUs = "Unsere Mission: Sonne tanken zum Standard machen. Hilf uns und unte
 thanks = "Vielen Dank, {sponsor}! Dein Beitrag hilft, evcc weiterzuentwickeln."
 titleNoSponsor = "Unterstütze uns"
 titleSponsor = "Du bist Unterstützer"
+titleTrial = "Testmodus"
+titleVictron = "Unterstützt von Victron Energy"
+trial = "Du befindest dich im Testmodus und kannst alle Funktionen nutzen. Wir freuen uns, wenn du Sponsor wirst."
+victron = "Du verwendest evcc auf Victron Energy Hardware und hast Zugriff auf alle Funktionen."
 
 [footer.telemetry]
 optIn = "Ich möchte meine Ladedaten teilen."
@@ -224,6 +239,8 @@ update = "Aktualisieren"
 [loginModal]
 cancel = "Abbrechen"
 error = "Login fehlgeschlagen: "
+iframeHint = "Öffne evcc in einem neuen Tab."
+iframeIssue = "Das Passwort ist korrekt, aber dein Browser hat das Authentifizierungscookie abgelehnt. Dies kann passieren, wenn du evcc in einem iframe über HTTP verwendest."
 invalid = "Passwort ist ungültig."
 login = "Anmelden"
 password = "Passwort"
@@ -303,7 +320,7 @@ label = "Max. Ladestrom"
 label = "Min. Ladestrom"
 
 [main.loadpointSettings.minSoc]
-description = "Fahrzeug wird im PV-Modus „schnell“ auf {0}% geladen. Danach weiter mit PV-Überschuss. Nützlich, um auch an dunklen Tagen eine Mindestreichweite zu gewährleisten."
+description = "Fahrzeug wird im PV-Modus „schnell“ auf {0} geladen. Danach weiter mit PV-Überschuss. Nützlich, um auch an dunklen Tagen eine Mindestreichweite zu gewährleisten."
 label = "Min. Ladung %"
 
 [main.loadpointSettings.phasesConfigured]
@@ -331,7 +348,7 @@ co2Limit = "CO₂-Grenze von {co2}"
 costLimitIgnore = "Die eingestellte {limit} wird in diesem Zeitraum ignoriert."
 currentPlan = "Aktiver Plan"
 descriptionEnergy = "Bis wann sollen {targetEnergy} ins Fahrzeug geladen sein?"
-descriptionSoc = "Wann soll das Fahrzeug auf {targetSoc}% geladen sein?"
+descriptionSoc = "Wann soll das Fahrzeug auf {targetSoc} geladen sein?"
 inactiveLabel = "Zielzeit"
 notReachableInTime = "Zielzeit nicht erreichbar. Voraussichtliches Ende: {endTime}."
 onlyInPvMode = "Ladeplanung ist nur im PV-Modus aktiv."
@@ -384,7 +401,7 @@ charging = "lädt"
 connected = "verbunden"
 disconnected = "getrennt"
 ready = "bereit"
-vehicleLimit = "Fahrzeuglimit: {soc}%"
+vehicleLimit = "Fahrzeuglimit: {soc}"
 
 [main.vehicleStatus]
 charging = "Ladevorgang aktiv …"
@@ -393,7 +410,7 @@ cleanEnergyCharging = "Lade saubere Energie: {co2} (Grenze {limit})"
 climating = "Vorklimatisierung erkannt."
 connected = "Verbunden."
 disconnected = "Nicht verbunden."
-minCharge = "Mindestladung bis {soc}%."
+minCharge = "Mindestladung bis {soc}."
 pvDisable = "Zu wenig Überschuss. Pausiere in {remaining} …"
 pvEnable = "Überschuss verfügbar. Starte in {remaining} …"
 scale1p = "Reduziere auf einphasig in {remaining} …"
@@ -402,7 +419,7 @@ targetChargeActive = "Ladeplan aktiv …"
 targetChargePlanned = "Ladeplan startet {time} Uhr."
 targetChargeWaitForVehicle = "Ladeplan bereit. Warte auf Fahrzeug …"
 unknown = ""
-vehicleLimitReached = "Fahrzeuglimit {soc}% erreicht."
+vehicleLimitReached = "Fahrzeuglimit {soc} erreicht."
 waitForVehicle = "Ladebereit. Warte auf Fahrzeug …"
 
 [notifications]
@@ -462,6 +479,8 @@ vehicle = "Fahrzeug"
 
 [sessions.csv]
 chargedenergy = "Energie (kWh)"
+chargeduration = "Ladedauer"
+co2perkwh = "CO₂/kWh"
 created = "Startzeit"
 finished = "Endzeit"
 identifier = "Kennung"
@@ -469,6 +488,9 @@ loadpoint = "Ladepunkt"
 meterstart = "Anfangszählerstand (kWh)"
 meterstop = "Endzählerstand (kWh)"
 odometer = "Kilometerstand (km)"
+price = "Preis"
+priceperkwh = "Preis/kWh"
+solarpercentage = "Sonne (%)"
 vehicle = "Fahrzeug"
 
 [sessions.filter]

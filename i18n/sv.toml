@@ -13,7 +13,7 @@ legendTitle = "Hur ska solenergin användas?"
 legendTopAutostart = "startar automatiskt"
 legendTopName = "laddning med batteristöd"
 legendTopSubline = "utan avbrott"
-modalTitle = "Batteri inställningar"
+modalTitle = "Hemmabatteri"
 
 [batterySettings.bufferStart]
 above = "när den är över {soc}"
@@ -74,13 +74,35 @@ template = "Tillverkare"
 titleChoice = "Vad vill du lägga till?"
 validateSave = "Validera & spara"
 
+[config.options]
+
+[config.options.endianness]
+big = "big-endian"
+little = "little-endian"
+
+[config.options.schema]
+http = "HTTP (okrypterad)"
+https = "HTTPS (krypterad)"
+
 [config.pv]
 titleAdd = "Lägg till solcellsmätare"
 titleEdit = "Ändra solcellsmätare"
 
+[config.section]
+general = "Allmänna"
+system = "System"
+
 [config.site]
 cancel = "Avbryt"
 save = "Spara"
+
+[config.system]
+logs = "Loggar"
+restart = "Omstart"
+restartRequiredDescription = "Starta om för att de nya inställningarna ska börja gälla."
+restartRequiredMessage = "Inställningar ändrade."
+restartingDescription = "Vänligen vänta..."
+restartingMessage = "Startar om evcc."
 
 [config.title]
 description = "Visas på huvudskärm och tabbar."
@@ -126,8 +148,8 @@ tabTitle = "Live community"
 co2Saved = "{value} sparad"
 co2Title = "CO₂ utsläpp"
 configurePriceCo2 = "Konfigurera pris och CO₂-utsläpp"
-footerLong = "{percent}% solenergi"
-footerShort = "{percent}% sol"
+footerLong = "{percent} solenergi"
+footerShort = "{percent} sol"
 modalTitle = "Översikt laddning"
 moneySaved = "{value} sparad"
 percentGrid = "{grid} kWh nät"
@@ -195,6 +217,8 @@ discussionsButton = "GitHub diskussioner"
 documentationButton = "Dokumentation"
 issueButton = "Rapportera fel"
 issueDescription = "Hittat ett konstigt eller felaktigt beteende?"
+logsButton = "Se loggar"
+logsDescription = "Felsök loggar"
 modalTitle = "Behöver du hjälp?"
 primaryActions = "Fungerar det inte som tänkt? Här finns mycket hjälp att hitta."
 restartButton = "Omstart"
@@ -208,12 +232,24 @@ description = "Normalt behövs inte en omstart. Rapportera ett fel om du behöve
 disclaimer = "Notera: evcc kommer stängas av och be operativsystemet starta om tjänsten."
 modalTitle = "Är du säker på att du vill starta om?"
 
+[log]
+areaLabel = "Filtrera per område"
+areas = "Alla områden"
+download = "Ladda hem alla loggar"
+levelLabel = "Filtrera på loggnivå"
+noResults = "Inga matchande loggposter."
+search = "Sök"
+showAll = "Visa allt"
+title = "Loggar"
+update = "Autouppdatera"
+
 [loginModal]
 cancel = "Avbryt"
 error = "Inloggning misslyckades:"
 invalid = "Ogiltigt lösenord."
 login = "Logga in"
 password = "Lösenord"
+reset = "Återställ lösenord?"
 title = "Autentisering"
 
 [main]
@@ -289,7 +325,7 @@ label = "Max. ström"
 label = "Min. ström"
 
 [main.loadpointSettings.minSoc]
-description = "Fordonet laddas i sol-läge „snabbt” till {0}% och sedan med endast solel. Användbart för att alltid ha en minsta räckvidd tillgänglig ."
+description = "Fordonet laddas i sol-läge „snabbt” till {0} och sedan med endast solel. Användbart för att alltid ha en minsta räckvidd tillgänglig ."
 label = "Min. laddning %"
 
 [main.loadpointSettings.phasesConfigured]
@@ -317,7 +353,7 @@ co2Limit = "CO₂ gräns av {co2}"
 costLimitIgnore = "Den inställda {limit} kommer att ignoreras den här perioden."
 currentPlan = "Aktiv plan"
 descriptionEnergy = "När ska fordonet vara laddat till {targetEnergy}?"
-descriptionSoc = "När ska fordonet vara laddat till {targetSoc}%?"
+descriptionSoc = "När ska fordonet vara laddat till {targetSoc}?"
 inactiveLabel = "Mål-tid"
 modalTitle = "Ange måltid"
 noActivePlan = "Ingen aktiv prenumeration"
@@ -374,7 +410,7 @@ charging = "laddar"
 connected = "ansluten"
 disconnected = "frånkopplad"
 ready = "redo"
-vehicleLimit = "Fordonsgräns: {soc}%"
+vehicleLimit = "Fordonsgräns: {soc}"
 
 [main.vehicleStatus]
 charging = "Laddar..."
@@ -383,7 +419,7 @@ cleanEnergyCharging = "Laddar grön energi: {co2} (gräns {limit})"
 climating = "Förvärmning identifierad."
 connected = "Inkopplad."
 disconnected = "Frånkopplad."
-minCharge = "Minimiladdning till {soc}%."
+minCharge = "Minimiladdning till {soc}."
 pvDisable = "Inte tillräckligt med överskott. Pausar om {remaining}..."
 pvEnable = "Överskott tillgängligt. Börjar om {remaining}..."
 scale1p = "Minskar till 1-fas-laddning om {remaining}..."
@@ -391,12 +427,12 @@ scale3p = "Ökar till 3-fas-laddning om {remaining}..."
 targetChargeActive = "Laddplan aktiv..."
 targetChargePlanned = "Laddplan startar {time}."
 targetChargeWaitForVehicle = "Laddare beredd. Väntar på fordon..."
-unknown = ""
-vehicleLimitReached = "Fordonsgränsen {soc}% nådd."
+vehicleLimitReached = "Fordonsgränsen {soc} nådd."
 waitForVehicle = "Redo. Väntar på fordon..."
 
 [notifications]
 dismissAll = "Avvisa alla"
+logs = "Se kompletta loggar"
 modalTitle = "Meddelanden"
 
 [offline]
@@ -451,6 +487,8 @@ vehicle = "Fordon"
 
 [sessions.csv]
 chargedenergy = "Energi (kWh)"
+chargeduration = "Varaktighet"
+co2perkwh = "CO₂/kWh"
 created = "Starttid"
 finished = "Sluttid"
 identifier = "Identifierare"
@@ -458,6 +496,9 @@ loadpoint = "Laddplats"
 meterstart = "Mätare start (kWh)"
 meterstop = "Mätare slut (kWh)"
 odometer = "Mätarställning (km)"
+price = "Pris"
+priceperkwh = "Pris/kWh"
+solarpercentage = "Sol (%)"
 vehicle = "Fordon"
 
 [sessions.filter]
@@ -466,7 +507,12 @@ allVehicles = "alla fordon"
 filter = "Filter"
 
 [settings]
-title = "Allmänna inställningar"
+title = "Användargränssnitt"
+
+[settings.fullscreen]
+enter = "Till helskärmsläge"
+exit = "Lämna helskärmsläge"
+label = "Helskärmsläge"
 
 [settings.gridDetails]
 co2 = "CO₂"

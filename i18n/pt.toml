@@ -74,9 +74,19 @@ template = "Fabricante"
 titleChoice = "O que você quer adicionar?"
 validateSave = "Validar e guardar"
 
+[config.options]
+
+[config.options.endianness]
+
+[config.options.schema]
+
 [config.pv]
 titleAdd = "Adicionar Contador Solar"
 titleEdit = "Editar Contador Solar"
+
+[config.section]
+
+[config.system]
 
 [config.title]
 description = "Exibido no ecrã principal e na guia do navegador."
@@ -122,8 +132,8 @@ tabTitle = "Comunidade ao vivo"
 co2Saved = "{value} poupado"
 co2Title = "Emissões de CO₂"
 configurePriceCo2 = "Saiba como configurar os dados de preço e CO₂."
-footerLong = "{percent}% energia solar"
-footerShort = "{percent}% Sol"
+footerLong = "{percent} energia solar"
+footerShort = "{percent} Sol"
 modalTitle = "Avaliação da energia carregada"
 moneySaved = "{value} poupado"
 percentGrid = "{grid} kWh rede"
@@ -209,6 +219,8 @@ description = "Em circunstâncias normais, a reinicialização não deve ser nec
 disclaimer = "Nota: o evcc terminará e confiará no sistema operacional para reiniciar o serviço."
 modalTitle = "Tens a certeza que queres reiniciar"
 
+[log]
+
 [loginModal]
 cancel = "Cancelar"
 error = "Login falhou: "
@@ -290,7 +302,7 @@ label = "Corrente de carga máxima"
 label = "Corrente de carga mínima"
 
 [main.loadpointSettings.minSoc]
-description = "O veículo é carregado “rápido” até {0}% no modo solar. Em seguida, continua com excedente solar. Útil para garantir um alcance mínimo mesmo em dias mais escuros."
+description = "O veículo é carregado “rápido” até {0} no modo solar. Em seguida, continua com excedente solar. Útil para garantir um alcance mínimo mesmo em dias mais escuros."
 label = "Mín. de carga %"
 
 [main.loadpointSettings.phasesConfigured]
@@ -318,7 +330,7 @@ co2Limit = "Limite de CO₂ de {co2}"
 costLimitIgnore = "O {limit} configurado será ignorado durante este período."
 currentPlan = "Plano ativo"
 descriptionEnergy = "Até quando {targetEnergy} deve ser carregado no veículo?"
-descriptionSoc = "Quando o veículo deve ser carregado até {targetSoc}%?"
+descriptionSoc = "Quando o veículo deve ser carregado até {targetSoc}?"
 inactiveLabel = "Tempo alvo"
 modalTitle = "Definir hora-alvo"
 notReachableInTime = "O objetivo não é alcançável no tempo. Final estimado: {endTime}."
@@ -374,7 +386,7 @@ charging = "carregando"
 connected = "ligado"
 disconnected = "separado"
 ready = "esperando"
-vehicleLimit = "Limite de veículo: {soc}%"
+vehicleLimit = "Limite de veículo: {soc}"
 
 [main.vehicleStatus]
 charging = "Carregando..."
@@ -383,7 +395,7 @@ cleanEnergyCharging = "Carregando energia limpa: {co2} (limit {limit})"
 climating = "Pré-condicionamento detectado."
 connected = "Ligado."
 disconnected = "Não conectado."
-minCharge = "Carga mínima até {soc}%"
+minCharge = "Carga mínima até {soc}"
 pvDisable = "Excesso insuficiente. Pausa em {remaining}..."
 pvEnable = "Excesso disponível. Carga em {remaining}..."
 scale1p = "Reduzindo para carregamento monofásico em {remaining}…"
@@ -391,8 +403,7 @@ scale3p = "Aumentando para carregamento trifásico em {remaining}…"
 targetChargeActive = "Plano de carregamento activo..."
 targetChargePlanned = "O plano de carregamento começa a {time}."
 targetChargeWaitForVehicle = "Plano de carregamento pronto. À espera do veículo..."
-unknown = ""
-vehicleLimitReached = "Limite de veículo {soc}% atingido."
+vehicleLimitReached = "Limite de veículo {soc} atingido."
 waitForVehicle = "Pronto. Esperando pelo veículo..."
 
 [notifications]
@@ -468,6 +479,8 @@ filter = "Filtro"
 
 [settings]
 title = "Configuração geral"
+
+[settings.fullscreen]
 
 [settings.gridDetails]
 co2 = "CO₂"
