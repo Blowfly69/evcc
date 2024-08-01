@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"strings"
@@ -20,6 +19,7 @@ import (
 	"github.com/evcc-io/evcc/core/planner"
 	"github.com/evcc-io/evcc/core/prioritizer"
 	"github.com/evcc-io/evcc/core/session"
+	"github.com/evcc-io/evcc/core/site"
 	"github.com/evcc-io/evcc/core/soc"
 	"github.com/evcc-io/evcc/core/vehicle"
 	"github.com/evcc-io/evcc/push"
@@ -37,7 +37,7 @@ const standbyPower = 10 // consider less than 10W as charger in standby
 // updater abstracts the Loadpoint implementation for testing
 type updater interface {
 	loadpoint.API
-	Update(availablePower float64, autoCharge, batteryBuffered, batteryStart bool, greenShare float64, effectivePrice, effectiveCo2 *float64)
+	Update(availablePower float64, smartCostActive bool, smartCostNextStart time.Time, batteryBuffered, batteryStart bool, greenShare float64, effectivePrice, effectiveCo2 *float64)
 }
 
 // meterMeasurement is used as slice element for publishing structured data
@@ -54,6 +54,8 @@ type batteryMeasurement struct {
 	Capacity     float64 `json:"capacity,omitempty"`
 	Controllable bool    `json:"controllable"`
 }
+
+var _ site.API = (*Site)(nil)
 
 // Site is the main configuration container. A site can host multiple loadpoints.
 type Site struct {
@@ -213,11 +215,6 @@ func (site *Site) Boot(log *util.Logger, loadpoints []*Loadpoint, tariffs *tarif
 			return err
 		}
 		site.auxMeters = append(site.auxMeters, dev.Instance())
-	}
-
-	// configure meter from references
-	if site.gridMeter == nil && len(site.pvMeters) == 0 {
-		return errors.New("missing either grid or pv meter")
 	}
 
 	// revert battery mode on shutdown
@@ -570,21 +567,21 @@ func (site *Site) updateGridMeter() error {
 		return fmt.Errorf("grid meter: %v", err)
 	}
 
-	// grid phase powers
-	var p1, p2, p3 float64
-	if phaseMeter, ok := site.gridMeter.(api.PhasePowers); ok {
-		var err error // phases needed for signed currents
-		if p1, p2, p3, err = phaseMeter.Powers(); err == nil {
-			phases := []float64{p1, p2, p3}
-			site.log.DEBUG.Printf("grid powers: %.0fW", phases)
-			site.publish(keys.GridPowers, phases)
-		} else {
-			site.log.ERROR.Printf("grid powers: %v", err)
-		}
-	}
-
 	// grid phase currents (signed)
 	if phaseMeter, ok := site.gridMeter.(api.PhaseCurrents); ok {
+		// grid phase powers
+		var p1, p2, p3 float64
+		if phaseMeter, ok := site.gridMeter.(api.PhasePowers); ok {
+			var err error // phases needed for signed currents
+			if p1, p2, p3, err = phaseMeter.Powers(); err == nil {
+				phases := []float64{p1, p2, p3}
+				site.log.DEBUG.Printf("grid powers: %.0fW", phases)
+				site.publish(keys.GridPowers, phases)
+			} else {
+				site.log.ERROR.Printf("grid powers: %v", err)
+			}
+		}
+
 		if i1, i2, i3, err := phaseMeter.Currents(); err == nil {
 			phases := []float64{util.SignFromPower(i1, p1), util.SignFromPower(i2, p2), util.SignFromPower(i3, p3)}
 			site.log.DEBUG.Printf("grid currents: %.3gA", phases)
@@ -799,7 +796,16 @@ func (site *Site) update(lp updater) {
 	if rate, err := site.plannerRate(); err == nil {
 		smartCostActive = site.smartCostActive(lp, rate)
 	} else {
-		site.log.WARN.Println("smartCost:", err)
+		site.log.WARN.Println("smartCostActive:", err)
+	}
+
+	var smartCostNextStart time.Time
+	if !smartCostActive {
+		if rates, err := site.plannerRates(); err == nil {
+			smartCostNextStart = site.smartCostNextStart(lp, rates)
+		} else {
+			site.log.WARN.Println("smartCostNextStart:", err)
+		}
 	}
 
 	if sitePower, batteryBuffered, batteryStart, err := site.sitePower(totalChargePower, flexiblePower); err == nil {
@@ -814,7 +820,7 @@ func (site *Site) update(lp updater) {
 		greenShareHome := site.greenShare(0, homePower)
 		greenShareLoadpoints := site.greenShare(nonChargePower, nonChargePower+totalChargePower)
 
-		lp.Update(sitePower, smartCostActive, batteryBuffered, batteryStart, greenShareLoadpoints, site.effectivePrice(greenShareLoadpoints), site.effectiveCo2(greenShareLoadpoints))
+		lp.Update(sitePower, smartCostActive, smartCostNextStart, batteryBuffered, batteryStart, greenShareLoadpoints, site.effectivePrice(greenShareLoadpoints), site.effectiveCo2(greenShareLoadpoints))
 
 		site.Health.Update()
 
