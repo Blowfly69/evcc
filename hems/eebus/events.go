@@ -108,7 +108,7 @@ func (c *EEBus) dataUpdateLimit() {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
-	c.consumptionLimit = &limit
+	c.limit = &limit
 }
 
 func (c *EEBus) writeApprovalRequired() {
