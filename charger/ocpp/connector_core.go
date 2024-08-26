@@ -42,7 +42,7 @@ func (conn *Connector) StatusNotification(request *core.StatusNotificationReques
 
 func getSampleKey(s types.SampledValue) types.Measurand {
 	if s.Phase != "" {
-		return s.Measurand + types.Measurand("@"+string(s.Phase))
+		return s.Measurand + types.Measurand("."+string(s.Phase))
 	}
 
 	return s.Measurand
@@ -60,15 +60,25 @@ func (conn *Connector) MeterValues(request *core.MeterValuesRequest) (*core.Mete
 		conn.txnId = *request.TransactionId
 	}
 
-	for _, meterValue := range request.MeterValue {
+	for _, meterValue := range sortByAge(request.MeterValue) {
+		if meterValue.Timestamp == nil {
+			// this should be done before the sorting, but lets assume either all or no sample has a timestamp
+			meterValue.Timestamp = types.NewDateTime(conn.clock.Now())
+		}
+
 		// ignore old meter value requests
-		if meterValue.Timestamp.Time.After(conn.meterUpdated) {
+		if !meterValue.Timestamp.Time.Before(conn.meterUpdated) {
 			for _, sample := range meterValue.SampledValue {
 				sample.Value = strings.TrimSpace(sample.Value)
 				conn.measurements[getSampleKey(sample)] = sample
-				conn.meterUpdated = conn.clock.Now()
+				conn.meterUpdated = meterValue.Timestamp.Time
 			}
 		}
+	}
+
+	select {
+	case conn.meterC <- struct{}{}:
+	default:
 	}
 
 	return new(core.MeterValuesConfirmation), nil
