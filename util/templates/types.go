@@ -56,9 +56,10 @@ const (
 	RequirementEEBUS       = "eebus"       // EEBUS Setup is required
 	RequirementMQTT        = "mqtt"        // MQTT Setup is required
 	RequirementSponsorship = "sponsorship" // Sponsorship is required
+	RequirementSkipTest    = "skiptest"    // Template should be rendered but not tested
 )
 
-var ValidRequirements = []string{RequirementEEBUS, RequirementMQTT, RequirementSponsorship}
+var ValidRequirements = []string{RequirementEEBUS, RequirementMQTT, RequirementSponsorship, RequirementSkipTest}
 
 var predefinedTemplateProperties = []string{
 	"type", "template", "name",
@@ -129,6 +130,19 @@ func (t *TextLanguage) MarshalJSON() (out []byte, err error) {
 	s := t.String(encoderLanguage)
 	mu.Unlock()
 	return json.Marshal(s)
+}
+
+func (r Requirements) MarshalJSON() ([]byte, error) {
+	mu.Lock()
+	custom := struct {
+		EVCC        []string `json:",omitempty"`
+		Description string   `json:",omitempty"`
+	}{
+		EVCC:        r.EVCC,
+		Description: r.Description.String(encoderLanguage),
+	}
+	mu.Unlock()
+	return json.Marshal(custom)
 }
 
 // Requirements
@@ -247,7 +261,7 @@ type TemplateDefinition struct {
 	Covers       []string         `json:",omitempty"` // list of covered outdated template names
 	Products     []Product        `json:",omitempty"` // list of products this template is compatible with
 	Capabilities []string         `json:",omitempty"`
-	Requirements Requirements     `json:"-"`
+	Requirements Requirements     `json:",omitempty"`
 	Linked       []LinkedTemplate `json:",omitempty"` // a list of templates that should be processed as part of the guided setup
 	Params       []Param          `json:",omitempty"`
 	Render       string           `json:"-"` // rendering template

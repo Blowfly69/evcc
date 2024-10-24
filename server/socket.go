@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"strings"
 	"sync"
@@ -65,18 +64,7 @@ func (h *SocketHub) ServeWebsocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close(websocket.StatusInternalError, "")
 
-	err = h.subscribe(r.Context(), conn)
-
-	if errors.Is(err, context.Canceled) {
-		return
-	}
-	if cs := websocket.CloseStatus(err); cs == websocket.StatusNormalClosure || cs == websocket.StatusGoingAway {
-		return
-	}
-	if err != nil {
-		log.ERROR.Println(err)
-		return
-	}
+	_ = h.subscribe(r.Context(), conn)
 }
 
 func (h *SocketHub) subscribe(ctx context.Context, conn *websocket.Conn) error {

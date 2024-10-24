@@ -413,6 +413,6 @@ render: |
     register:
       address: 518 # "Total discharge of the battery (Wh)"
       type: holding
-      # decode: uint32s
+      decode: uint32s
     scale: 0.1
   {{- end }}

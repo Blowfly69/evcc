@@ -1,35 +1,21 @@
 import { test, expect } from "@playwright/test";
-import { start, stop, restart, cleanRestart, baseUrl } from "./evcc";
+import { start, stop, restart, baseUrl } from "./evcc";
+import { enableExperimental, login } from "./utils";
 
 const CONFIG_GRID_ONLY = "config-grid-only.evcc.yaml";
 const CONFIG_WITH_VEHICLE = "config-with-vehicle.evcc.yaml";
 
 test.use({ baseURL: baseUrl() });
+test.describe.configure({ mode: "parallel" });
 
-test.beforeAll(async () => {
-  await start(CONFIG_GRID_ONLY, "password.sql");
-});
-test.afterAll(async () => {
+test.afterEach(async () => {
   await stop();
 });
 
-async function login(page) {
-  await page.locator("#loginPassword").fill("secret");
-  await page.getByRole("button", { name: "Login" }).click();
-  await expect(page.locator("#loginPassword")).not.toBeVisible();
-}
-
-async function enableExperimental(page) {
-  await page
-    .getByTestId("generalconfig-experimental")
-    .getByRole("button", { name: "edit" })
-    .click();
-  await page.getByLabel("Experimental 🧪").click();
-  await page.getByRole("button", { name: "Close" }).click();
-}
-
 test.describe("vehicles", async () => {
   test("create, edit and delete vehicles", async ({ page }) => {
+    await start(CONFIG_GRID_ONLY, "password.sql");
+
     await page.goto("/#/config");
     await login(page);
     await enableExperimental(page);
@@ -79,6 +65,8 @@ test.describe("vehicles", async () => {
   });
 
   test("config should survive restart", async ({ page }) => {
+    await start(CONFIG_GRID_ONLY, "password.sql");
+
     await page.goto("/#/config");
     await login(page);
     await enableExperimental(page);
@@ -111,7 +99,7 @@ test.describe("vehicles", async () => {
   });
 
   test("mixed config (yaml + db)", async ({ page }) => {
-    await cleanRestart(CONFIG_WITH_VEHICLE, "password.sql");
+    await start(CONFIG_WITH_VEHICLE, "password.sql");
 
     await page.goto("/#/config");
     await login(page);
@@ -120,7 +108,7 @@ test.describe("vehicles", async () => {
     await expect(page.getByTestId("vehicle")).toHaveCount(1);
     const vehicleModal = page.getByTestId("vehicle-modal");
 
-    // create #1
+    // create #2
     await page.getByTestId("add-vehicle").click();
     await vehicleModal.getByLabel("Manufacturer").selectOption("Generic vehicle");
     await vehicleModal.getByLabel("Title").fill("Green Car");
@@ -132,6 +120,8 @@ test.describe("vehicles", async () => {
   });
 
   test("advanced fields", async ({ page }) => {
+    await start(CONFIG_GRID_ONLY, "password.sql");
+
     await page.goto("/#/config");
     await login(page);
     await enableExperimental(page);
@@ -169,6 +159,8 @@ test.describe("vehicles", async () => {
   });
 
   test("save and restore rfid identifiers", async ({ page }) => {
+    await start(CONFIG_GRID_ONLY, "password.sql");
+
     await page.goto("/#/config");
     await login(page);
     await enableExperimental(page);
@@ -188,13 +180,11 @@ test.describe("vehicles", async () => {
     await restart(CONFIG_GRID_ONLY);
     await page.reload();
 
-    await page
-      .locator(`[data-testid="vehicle"]:has-text("RFID Car")`)
-      .getByRole("button", { name: "edit" })
-      .click();
-    await page.getByRole("button", { name: "Show advanced settings" }).click();
+    await expect(page.getByTestId("vehicle")).toHaveCount(1);
+    await page.getByTestId("vehicle").getByRole("button", { name: "edit" }).click();
+    await vehicleModal.getByRole("button", { name: "Show advanced settings" }).click();
     await expect(vehicleModal.getByLabel("RFID identifiers")).toHaveValue("aaa\nbbb\nccc\nddd");
-    await page.getByTestId("vehicle-modal").getByLabel("Close").click();
+    await vehicleModal.getByLabel("Close").click();
     await expect(page.getByTestId("fatal-error")).not.toBeVisible();
   });
 });

@@ -66,7 +66,8 @@
 									</optgroup>
 								</select>
 							</FormRow>
-
+							<p v-if="loadingTemplate">Loading ...</p>
+							<Markdown v-if="description" :markdown="description" class="my-4" />
 							<PropertyEntry
 								v-for="param in normalParams"
 								:key="param.Name"
@@ -119,6 +120,7 @@
 												{ name: '2-phases', value: '2' },
 												{ name: '3-phases', value: undefined },
 											]"
+											equal-width
 										/>
 									</FormRow>
 									<div class="row mb-3">
@@ -261,6 +263,7 @@ import TestResult from "./TestResult.vue";
 import SelectGroup from "../SelectGroup.vue";
 import PropertyEntry from "./PropertyEntry.vue";
 import PropertyCollapsible from "./PropertyCollapsible.vue";
+import Markdown from "./Markdown.vue";
 import api from "../../api";
 import test from "./mixins/test";
 
@@ -281,6 +284,7 @@ export default {
 		SelectGroup,
 		PropertyCollapsible,
 		PropertyEntry,
+		Markdown,
 	},
 	mixins: [test],
 	props: {
@@ -296,6 +300,7 @@ export default {
 			templateName: null,
 			template: null,
 			values: { ...initialValues },
+			loadingTemplate: false,
 		};
 	},
 	computed: {
@@ -322,6 +327,9 @@ export default {
 		},
 		advancedParams() {
 			return this.templateParams.filter((p) => p.Advanced);
+		},
+		description() {
+			return this.template?.Requirements?.Description;
 		},
 		apiData() {
 			const data = {
@@ -402,6 +410,7 @@ export default {
 		},
 		async loadTemplate() {
 			this.template = null;
+			this.loadingTemplate = true;
 			try {
 				const opts = {
 					params: {
@@ -414,6 +423,7 @@ export default {
 			} catch (e) {
 				console.error(e);
 			}
+			this.loadingTemplate = false;
 		},
 		applyDefaultsFromTemplate() {
 			const params = this.template?.Params || [];
@@ -496,3 +506,4 @@ export default {
 	padding-right: 0;
 }
 </style>
+import type MarkdownVue from "./Markdown.vue";

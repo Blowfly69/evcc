@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { start, stop, baseUrl } from "./evcc";
+import { login } from "./utils";
 
 test.use({ baseURL: baseUrl() });
 
@@ -9,12 +10,6 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await stop();
 });
-
-async function login(page) {
-  await page.locator("#loginPassword").fill("secret");
-  await page.getByRole("button", { name: "Login" }).click();
-  await expect(page.locator("#loginPassword")).not.toBeVisible();
-}
 
 test.describe("opening logs", async () => {
   test("via config", async ({ page }) => {
@@ -47,6 +42,7 @@ test.describe("features", async () => {
   test("content", async ({ page }) => {
     await page.goto("/#/log");
     await login(page);
+    await page.getByTestId("log-search").fill("listening at");
     await expect(page.getByTestId("log-content")).toContainText("listening at");
   });
 });
