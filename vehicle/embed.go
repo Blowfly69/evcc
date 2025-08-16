@@ -25,8 +25,8 @@ func (v *embed) fromVehicle(title string, capacity float64) {
 	}
 }
 
-// Title implements the api.Vehicle interface
-func (v *embed) Title() string {
+// GetTitle implements the api.Vehicle interface
+func (v *embed) GetTitle() string {
 	return v.Title_
 }
 
@@ -39,6 +39,8 @@ func (v *embed) SetTitle(title string) {
 func (v *embed) Capacity() float64 {
 	return v.Capacity_
 }
+
+var _ api.PhaseDescriber = (*embed)(nil)
 
 // Phases returns the phases used by the vehicle
 func (v *embed) Phases() int {

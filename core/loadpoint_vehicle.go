@@ -13,7 +13,7 @@ import (
 	"github.com/evcc-io/evcc/core/session"
 	"github.com/evcc-io/evcc/core/soc"
 	"github.com/evcc-io/evcc/core/vehicle"
-	"github.com/evcc-io/evcc/provider"
+	"github.com/evcc-io/evcc/util"
 )
 
 const (
@@ -115,12 +115,12 @@ func (lp *Loadpoint) setActiveVehicle(v api.Vehicle) {
 	from := "unknown"
 	if lp.vehicle != nil {
 		lp.coordinator.Release(lp.vehicle)
-		from = lp.vehicle.Title()
+		from = lp.vehicle.GetTitle()
 	}
 	to := "unknown"
 	if v != nil {
 		lp.coordinator.Acquire(v)
-		to = v.Title()
+		to = v.GetTitle()
 	}
 
 	lp.vehicle = v
@@ -141,6 +141,7 @@ func (lp *Loadpoint) setActiveVehicle(v api.Vehicle) {
 		lp.socEstimator = soc.NewEstimator(lp.log, lp.charger, v, estimate)
 
 		lp.publish(keys.VehicleName, vehicle.Settings(lp.log, v).Name())
+		lp.publish(keys.VehicleTitle, v.GetTitle())
 
 		if mode, ok := v.OnIdentified().GetMode(); ok {
 			lp.SetMode(mode)
@@ -151,9 +152,7 @@ func (lp *Loadpoint) setActiveVehicle(v api.Vehicle) {
 		lp.progress.Reset()
 	} else {
 		lp.socEstimator = nil
-		lp.publish(keys.VehicleSoc, 0)
-		lp.publish(keys.VehicleName, "")
-		lp.publish(keys.VehicleOdometer, 0.0)
+		lp.unpublishVehicleIdentity()
 	}
 
 	// re-publish vehicle settings
@@ -166,7 +165,7 @@ func (lp *Loadpoint) setActiveVehicle(v api.Vehicle) {
 	lp.updateSession(func(session *session.Session) {
 		var title string
 		if v != nil {
-			title = v.Title()
+			title = v.GetTitle()
 		}
 
 		lp.session.Vehicle = title
@@ -174,23 +173,34 @@ func (lp *Loadpoint) setActiveVehicle(v api.Vehicle) {
 }
 
 func (lp *Loadpoint) wakeUpVehicle() {
+	// wake up charger or vehicle. First wakeupAttemptsLeft will be odd.
+	charger, chargerCanWakeUp := lp.charger.(api.Resurrector)
+	vehicle, vehicleCanWakeUp := lp.GetVehicle().(api.Resurrector)
+
 	if lp.wakeUpTimer.wakeupAttemptsLeft%2 != 0 {
-		// charger
-		if c, ok := lp.charger.(api.Resurrector); ok {
-			lp.log.DEBUG.Printf("wake-up charger, attempts left: %d", lp.wakeUpTimer.wakeupAttemptsLeft)
-			if err := c.WakeUp(); err != nil {
-				lp.log.ERROR.Printf("wake-up charger: %v", err)
-			}
+		if chargerCanWakeUp {
+			lp.wakeUpResurrector(charger, "charger")
+		} else if vehicleCanWakeUp {
+			lp.wakeUpResurrector(vehicle, "vehicle")
 		}
 	} else {
-		// vehicle
-		if vs, ok := lp.GetVehicle().(api.Resurrector); ok {
-			lp.log.DEBUG.Printf("wake-up vehicle, attempts left: %d", lp.wakeUpTimer.wakeupAttemptsLeft)
-			if err := vs.WakeUp(); err != nil {
-				lp.log.ERROR.Printf("wake-up vehicle: %v", err)
-			}
+		if chargerCanWakeUp && vehicleCanWakeUp {
+			lp.wakeUpResurrector(vehicle, "vehicle")
 		}
 	}
+}
+
+func (lp *Loadpoint) wakeUpResurrector(resurrector api.Resurrector, name string) {
+	lp.log.DEBUG.Printf("wake-up %s, attempts left: %d", name, lp.wakeUpTimer.wakeupAttemptsLeft)
+	if err := resurrector.WakeUp(); err != nil {
+		lp.log.ERROR.Printf("wake-up %s: %v", name, err)
+	}
+}
+
+// unpublishVehicleIdentity resets published vehicle identification
+func (lp *Loadpoint) unpublishVehicleIdentity() {
+	lp.publish(keys.VehicleName, "")
+	lp.publish(keys.VehicleTitle, "")
 }
 
 // unpublishVehicle resets published vehicle data
@@ -201,6 +211,7 @@ func (lp *Loadpoint) unpublishVehicle() {
 	lp.publish(keys.VehicleSoc, 0.0)
 	lp.publish(keys.VehicleRange, int64(0))
 	lp.publish(keys.VehicleLimitSoc, 0.0)
+	lp.publish(keys.VehicleOdometer, 0.0)
 
 	lp.setRemainingEnergy(0)
 	lp.setRemainingDuration(0)
@@ -209,10 +220,7 @@ func (lp *Loadpoint) unpublishVehicle() {
 // vehicleHasFeature checks availability of vehicle feature
 func (lp *Loadpoint) vehicleHasFeature(f api.Feature) bool {
 	v, ok := lp.GetVehicle().(api.FeatureDescriber)
-	if ok {
-		ok = slices.Contains(v.Features(), f)
-	}
-	return ok
+	return ok && slices.Contains(v.Features(), f)
 }
 
 // vehicleUnidentified returns true if there are associated vehicles and detection is running.
@@ -234,7 +242,7 @@ func (lp *Loadpoint) vehicleUnidentified() bool {
 	select {
 	case <-lp.vehicleDetectTicker.C:
 		lp.log.DEBUG.Println("vehicle api refresh")
-		provider.ResetCached()
+		util.ResetCached()
 	default:
 	}
 
@@ -260,7 +268,7 @@ func (lp *Loadpoint) vehicleDefaultOrDetect() {
 func (lp *Loadpoint) startVehicleDetection() {
 	// flush all vehicles before detection starts
 	lp.log.DEBUG.Println("vehicle api refresh")
-	provider.ResetCached()
+	util.ResetCached()
 
 	lp.vehicleDetect = lp.clock.Now()
 	lp.vehicleDetectTicker = lp.clock.Ticker(vehicleDetectInterval)
@@ -314,9 +322,9 @@ func (lp *Loadpoint) vehicleOdometer() {
 // vehicleClimatePollAllowed determines if polling depending on mode and connection status
 func (lp *Loadpoint) vehicleClimatePollAllowed() bool {
 	switch {
-	case lp.Soc.Poll.Mode == pollCharging && lp.charging():
+	case lp.Soc.Poll.Mode == loadpoint.PollCharging && lp.charging():
 		return true
-	case (lp.Soc.Poll.Mode == pollConnected || lp.Soc.Poll.Mode == pollAlways) && lp.connected():
+	case (lp.Soc.Poll.Mode == loadpoint.PollConnected || lp.Soc.Poll.Mode == loadpoint.PollAlways) && lp.connected():
 		return true
 	default:
 		return false
@@ -337,8 +345,8 @@ func (lp *Loadpoint) vehicleSocPollAllowed() bool {
 
 	remaining := lp.Soc.Poll.Interval - lp.clock.Since(lp.socUpdated)
 
-	honourUpdateInterval := lp.Soc.Poll.Mode == pollAlways ||
-		lp.connected() && lp.Soc.Poll.Mode == pollConnected
+	honourUpdateInterval := lp.Soc.Poll.Mode == loadpoint.PollAlways ||
+		lp.connected() && lp.Soc.Poll.Mode == loadpoint.PollConnected
 
 	if honourUpdateInterval {
 		if remaining > 0 {

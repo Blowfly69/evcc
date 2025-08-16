@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evcc-io/evcc/provider"
 	"github.com/evcc-io/evcc/util"
 	"github.com/evcc-io/evcc/util/request"
 	"github.com/evcc-io/evcc/util/transport"
@@ -19,8 +18,8 @@ type Connection struct {
 	uri         string
 	usage       string
 	ProductType string
-	dataG       provider.Cacheable[DataResponse]
-	stateG      provider.Cacheable[StateResponse]
+	dataG       util.Cacheable[DataResponse]
+	stateG      util.Cacheable[StateResponse]
 }
 
 // NewConnection creates a homewizard connection
@@ -41,7 +40,7 @@ func NewConnection(uri string, usage string, cache time.Duration) (*Connection, 
 	// check and set API version + product type
 	var res ApiResponse
 	if err := c.GetJSON(c.uri, &res); err != nil {
-		return c, err
+		return nil, err
 	}
 	if res.ApiVersion != "v1" {
 		return nil, errors.New("unsupported api version: " + res.ApiVersion)
@@ -50,13 +49,13 @@ func NewConnection(uri string, usage string, cache time.Duration) (*Connection, 
 	c.uri = c.uri + "/" + res.ApiVersion
 	c.ProductType = res.ProductType
 
-	c.dataG = provider.ResettableCached(func() (DataResponse, error) {
+	c.dataG = util.ResettableCached(func() (DataResponse, error) {
 		var res DataResponse
 		err := c.GetJSON(fmt.Sprintf("%s/data", c.uri), &res)
 		return res, err
 	}, cache)
 
-	c.stateG = provider.ResettableCached(func() (StateResponse, error) {
+	c.stateG = util.ResettableCached(func() (StateResponse, error) {
 		var res StateResponse
 		err := c.GetJSON(fmt.Sprintf("%s/state", c.uri), &res)
 		return res, err

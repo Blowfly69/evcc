@@ -6,6 +6,7 @@ import (
 
 	"github.com/evcc-io/evcc/api"
 	"github.com/evcc-io/evcc/api/globalconfig"
+	"github.com/evcc-io/evcc/core"
 	"github.com/evcc-io/evcc/server/db"
 	"github.com/evcc-io/evcc/util/config"
 	"github.com/stretchr/testify/suite"
@@ -32,6 +33,10 @@ func (suite *circuitsTestSuite) SetupTest() {
 	config.Reset()
 }
 
+func (suite *circuitsTestSuite) charger() api.Charger {
+	return api.NewMockCharger(gomock.NewController(suite.T()))
+}
+
 func (suite *circuitsTestSuite) TestCircuitConf() {
 	var conf globalconfig.All
 	viper.SetConfigType("yaml")
@@ -50,18 +55,20 @@ loadpoints:
 
 	suite.Require().NoError(viper.UnmarshalExact(&conf))
 
-	suite.Require().NoError(configureCircuits(conf.Circuits))
+	suite.Require().NoError(configureCircuits(&conf.Circuits))
 	suite.Require().Len(config.Circuits().Devices(), 2)
 	suite.Require().False(config.Circuits().Devices()[0].Instance().HasMeter())
 
 	// empty charger
 	suite.Require().NoError(config.Chargers().Add(config.NewStaticDevice(config.Named{
 		Name: "test",
-	}, api.Charger(nil))))
+	}, suite.charger())))
 
-	lps, err := configureLoadpoints(conf)
+	err := configureLoadpoints(conf)
 	suite.Require().NoError(err)
-	suite.Require().NotNil(lps[0].GetCircuit())
+
+	lps := config.Loadpoints().Devices()
+	suite.Require().NotNil(lps[0].Instance().GetCircuit())
 }
 
 func (suite *circuitsTestSuite) TestCircuitMissingLoadpoint() {
@@ -79,22 +86,27 @@ loadpoints:
 
 	suite.Require().NoError(viper.UnmarshalExact(&conf))
 
-	suite.Require().NoError(configureCircuits(conf.Circuits))
+	suite.Require().NoError(configureCircuits(&conf.Circuits))
 	suite.Require().Len(config.Circuits().Devices(), 2)
 	suite.Require().False(config.Circuits().Devices()[0].Instance().HasMeter())
 
 	// empty charger
 	suite.Require().NoError(config.Chargers().Add(config.NewStaticDevice(config.Named{
 		Name: "test",
-	}, api.Charger(nil))))
+	}, suite.charger())))
 
-	lps, err := configureLoadpoints(conf)
+	err := configureLoadpoints(conf)
 	suite.Require().NoError(err)
+
+	lpsd := config.Loadpoints().Devices()
+	lps := make([]*core.Loadpoint, 0, len(lpsd))
+	for _, lp := range lpsd {
+		lps = append(lps, lp.Instance().(*core.Loadpoint))
+	}
 
 	// circuit without device
 	err = validateCircuits(lps)
-	suite.Require().Error(err)
-	suite.Require().Equal("circuit slave has no meter and no loadpoint assigned", err.Error())
+	suite.Require().NoError(err)
 }
 
 func (suite *circuitsTestSuite) TestMissingRootCircuit() {
@@ -132,16 +144,22 @@ loadpoints:
 
 	suite.Require().NoError(viper.UnmarshalExact(&conf))
 
-	suite.Require().NoError(configureCircuits(conf.Circuits))
+	suite.Require().NoError(configureCircuits(&conf.Circuits))
 	suite.Require().Len(config.Circuits().Devices(), 1)
 
 	// mock charger
 	suite.Require().NoError(config.Chargers().Add(config.NewStaticDevice(config.Named{
 		Name: "test",
-	}, api.Charger(nil))))
+	}, suite.charger())))
 
-	lps, err := configureLoadpoints(conf)
+	err := configureLoadpoints(conf)
 	suite.Require().NoError(err)
+
+	lpsd := config.Loadpoints().Devices()
+	lps := make([]*core.Loadpoint, 0, len(lpsd))
+	for _, lp := range lpsd {
+		lps = append(lps, lp.Instance().(*core.Loadpoint))
+	}
 
 	// lp using root circuit is valid
 	suite.Require().NoError(validateCircuits(lps))

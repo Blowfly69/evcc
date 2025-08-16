@@ -45,6 +45,12 @@ func (t *Template) Validate() error {
 		}
 	}
 
+	for _, c := range t.Countries {
+		if !c.IsValid() {
+			return fmt.Errorf("invalid country code '%s' in template %s", c, t.Template)
+		}
+	}
+
 	for _, r := range t.Requirements.EVCC {
 		if !slices.Contains(ValidRequirements, r) {
 			return fmt.Errorf("invalid requirement '%s' in template %s", r, t.Template)
@@ -52,6 +58,20 @@ func (t *Template) Validate() error {
 	}
 
 	for _, p := range t.Params {
+		if p.IsDeprecated() {
+			continue
+		}
+
+		if p.Description.String("en") == "" || p.Description.String("de") == "" {
+			return fmt.Errorf("description for param %s cant be empty in template %s", p.Name, t.Template)
+		}
+
+		maxLength := 50
+		actualLength := max(len(p.Description.String("en")), len(p.Description.String("de")))
+		if actualLength > maxLength {
+			return fmt.Errorf("description for param %s is too long in template %s. allowed: %d. actual length: %d. use help field for details instead.", p.Name, t.Template, maxLength, actualLength)
+		}
+
 		switch p.Name {
 		case ParamUsage:
 			for _, c := range p.Choice {
@@ -223,12 +243,12 @@ func (t *Template) RenderProxyWithValues(values map[string]interface{}, lang str
 		switch p.Type {
 		case TypeList:
 			for _, e := range v.([]string) {
-				t.Params[index].Values = append(p.Values, yamlQuote(e))
+				t.Params[index].Values = append(p.Values, p.yamlQuote(e))
 			}
 		default:
 			switch v := v.(type) {
 			case string:
-				t.Params[index].Value = yamlQuote(v)
+				t.Params[index].Value = p.yamlQuote(v)
 			case int:
 				t.Params[index].Value = strconv.Itoa(v)
 			}
@@ -291,7 +311,8 @@ func (t *Template) RenderResult(renderMode int, other map[string]any) ([]byte, m
 	for key, val := range values {
 		out := strings.ToLower(key)
 
-		if i, p := t.ParamByName(key); i == -1 {
+		i, p := t.ParamByName(key)
+		if i == -1 {
 			if !slices.Contains(predefinedTemplateProperties, out) {
 				return nil, values, fmt.Errorf("invalid key: %s", key)
 			}
@@ -307,7 +328,7 @@ func (t *Template) RenderResult(renderMode int, other map[string]any) ([]byte, m
 		case []interface{}:
 			var list []string
 			for _, v := range typed {
-				list = append(list, yamlQuote(fmt.Sprintf("%v", v)))
+				list = append(list, p.yamlQuote(fmt.Sprintf("%v", v)))
 			}
 			if res[out] == nil || len(res[out].([]interface{})) == 0 {
 				res[out] = list
@@ -316,7 +337,7 @@ func (t *Template) RenderResult(renderMode int, other map[string]any) ([]byte, m
 		case []string:
 			var list []string
 			for _, v := range typed {
-				list = append(list, yamlQuote(v))
+				list = append(list, p.yamlQuote(v))
 			}
 			if res[out] == nil || len(res[out].([]string)) == 0 {
 				res[out] = list
@@ -327,7 +348,7 @@ func (t *Template) RenderResult(renderMode int, other map[string]any) ([]byte, m
 				// prevent rendering nil interfaces as "<nil>" string
 				var s string
 				if val != nil {
-					s = yamlQuote(fmt.Sprintf("%v", val))
+					s = p.yamlQuote(fmt.Sprintf("%v", val))
 				}
 				res[out] = s
 			}

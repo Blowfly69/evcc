@@ -30,12 +30,12 @@ func (t *Template) RenderDocumentation(product Product, lang string) ([]byte, er
 		switch p.Type {
 		case TypeList:
 			for _, e := range v.([]string) {
-				t.Params[index].Values = append(p.Values, yamlQuote(e))
+				t.Params[index].Values = append(p.Values, p.yamlQuote(e))
 			}
 		default:
 			switch v := v.(type) {
 			case string:
-				t.Params[index].Value = yamlQuote(v)
+				t.Params[index].Value = p.yamlQuote(v)
 			case int:
 				t.Params[index].Value = strconv.Itoa(v)
 			}
@@ -43,6 +43,7 @@ func (t *Template) RenderDocumentation(product Product, lang string) ([]byte, er
 	}
 
 	var modbusRender string
+	modbusData := make(map[string]interface{})
 	if modbusChoices := t.ModbusChoices(); len(modbusChoices) > 0 {
 		if i, _ := t.ParamByName(ParamModbus); i > -1 {
 			modbusTmpl, err := template.New("yaml").Funcs(sprig.FuncMap()).Parse(documentationModbusTmpl)
@@ -50,7 +51,6 @@ func (t *Template) RenderDocumentation(product Product, lang string) ([]byte, er
 				panic(err)
 			}
 
-			modbusData := make(map[string]interface{})
 			t.ModbusValues(RenderModeDocs, modbusData)
 
 			out := new(bytes.Buffer)
@@ -91,16 +91,19 @@ func (t *Template) RenderDocumentation(product Product, lang string) ([]byte, er
 
 	data := map[string]interface{}{
 		"Template":               t.Template,
+		"ProductIdentifier":      product.Identifier(),
 		"ProductBrand":           product.Brand,
 		"ProductDescription":     product.Description.String(lang),
 		"ProductGroup":           t.GroupTitle(lang),
 		"Capabilities":           t.Capabilities,
+		"Countries":              t.Countries,
 		"Requirements":           t.Requirements.EVCC,
 		"RequirementDescription": t.Requirements.Description.String(lang),
 		"Params":                 filteredParams,
 		"AdvancedParams":         hasAdvancedParams,
 		"Usages":                 t.Usages(),
 		"Modbus":                 modbusRender,
+		"ModbusData":             modbusData,
 	}
 
 	out := new(bytes.Buffer)

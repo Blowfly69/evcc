@@ -14,6 +14,14 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+func sessionStart(lp *Loadpoint) func(session *session.Session) {
+	return func(session *session.Session) {
+		if session.Created.IsZero() {
+			session.Created = lp.clock.Now()
+		}
+	}
+}
+
 func TestSession(t *testing.T) {
 	var err error
 	serverdb.Instance, err = serverdb.New("sqlite", ":memory:")
@@ -38,11 +46,10 @@ func TestSession(t *testing.T) {
 	cm := &EnergyDecorator{Meter: mm, MeterEnergy: me}
 
 	lp := &Loadpoint{
-		log:           util.NewLogger("foo"),
-		clock:         clock,
-		db:            db,
-		chargeMeter:   cm,
-		sessionEnergy: NewEnergyMetrics(),
+		log:         util.NewLogger("foo"),
+		clock:       clock,
+		db:          db,
+		chargeMeter: cm,
 	}
 
 	// create session
@@ -51,16 +58,12 @@ func TestSession(t *testing.T) {
 	assert.NotNil(t, lp.session)
 
 	// start charging
-	lp.updateSession(func(session *session.Session) {
-		if session.Created.IsZero() {
-			session.Created = lp.clock.Now()
-		}
-	})
+	lp.updateSession(sessionStart(lp))
 	assert.Equal(t, clock.Now(), lp.session.Created)
 
 	// stop charging
 	clock.Add(time.Hour)
-	lp.sessionEnergy.Update(1.23)
+	lp.energyMetrics.Update(1.23)
 	me.EXPECT().TotalEnergy().Return(1.0+lp.getChargedEnergy()/1e3, nil) // match chargedEnergy
 
 	lp.stopSession()
@@ -75,7 +78,7 @@ func TestSession(t *testing.T) {
 
 	// stop charging - 2nd leg
 	clock.Add(time.Hour)
-	lp.sessionEnergy.Update(lp.getChargedEnergy() * 2)
+	lp.energyMetrics.Update(lp.getChargedEnergy() * 2)
 	me.EXPECT().TotalEnergy().Return(3.0, nil) // doesn't match chargedEnergy
 
 	lp.stopSession()
@@ -181,4 +184,77 @@ func createMockSessions(db *session.DB, clock *clock.Mock) []*session.Session {
 		sessions = append(sessions, session)
 	}
 	return sessions
+}
+
+func TestResetHeatingSession(t *testing.T) {
+	var err error
+	serverdb.Instance, err = serverdb.New("sqlite", ":memory:")
+	require.NoError(t, err)
+
+	db, err := session.NewStore("foo", serverdb.Instance)
+	require.NoError(t, err)
+
+	clock := clock.NewMock()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cc := api.NewMockCharger(ctrl)
+	fd := api.NewMockFeatureDescriber(ctrl)
+
+	type FeatureDecorator struct {
+		api.Charger
+		api.FeatureDescriber
+	}
+
+	charger := &FeatureDecorator{Charger: cc, FeatureDescriber: fd}
+	fd.EXPECT().Features().AnyTimes().Return([]api.Feature{
+		api.Heating, api.IntegratedDevice,
+	})
+
+	mm := api.NewMockMeter(ctrl)
+	me := api.NewMockMeterEnergy(ctrl)
+
+	type EnergyDecorator struct {
+		api.Meter
+		api.MeterEnergy
+	}
+
+	cm := &EnergyDecorator{Meter: mm, MeterEnergy: me}
+
+	lp := &Loadpoint{
+		log:         util.NewLogger("foo"),
+		clock:       clock,
+		db:          db,
+		charger:     charger,
+		chargeMeter: cm,
+	}
+
+	// create session
+	me.EXPECT().TotalEnergy().Return(1.0, nil)
+	lp.createSession()
+	require.NotNil(t, lp.session)
+	assert.True(t, lp.session.Created.IsZero())
+
+	// actually mark session as started
+	lp.session.Created = clock.Now()
+	assert.Equal(t, clock.Now(), lp.session.Created)
+
+	clock.Add(36 * time.Hour)
+	me.EXPECT().TotalEnergy().Return(1.0, nil).MaxTimes(2)
+
+	lp.resetHeatingSession()
+	require.NotNil(t, lp.session)
+	assert.True(t, lp.session.Created.IsZero())
+
+	lp.updateSession(sessionStart(lp))
+	assert.Equal(t, clock.Now(), lp.session.Created)
+
+	me.EXPECT().TotalEnergy().Return(3.0, nil)
+	lp.stopSession()
+
+	assert.NotNil(t, lp.session)
+	assert.Equal(t, clock.Now(), lp.session.Finished)
+	assert.Equal(t, 1.0, *lp.session.MeterStart)
+	assert.Equal(t, 3.0, *lp.session.MeterStop)
 }

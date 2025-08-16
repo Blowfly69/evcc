@@ -3,7 +3,7 @@ package charger
 // LICENSE
 
 // Copyright (c) 2019-2022 andig
-// Copyright (c) 2022 premultiply
+// Copyright (c) 2022-2024 premultiply
 
 // This module is NOT covered by the MIT license. All rights reserved.
 
@@ -19,6 +19,7 @@ package charger
 // SOFTWARE.
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"time"
@@ -73,13 +74,13 @@ var ablStatus = map[byte]string{
 }
 
 func init() {
-	registry.Add("abl", NewABLeMHFromConfig)
+	registry.AddCtx("abl", NewABLeMHFromConfig)
 }
 
 // https://www.goingelectric.de/forum/viewtopic.php?p=1550459#p1550459
 
 // NewABLeMHFromConfig creates a ABLeMH charger from generic config
-func NewABLeMHFromConfig(other map[string]interface{}) (api.Charger, error) {
+func NewABLeMHFromConfig(ctx context.Context, other map[string]interface{}) (api.Charger, error) {
 	cc := struct {
 		modbus.Settings `mapstructure:",squash"`
 		Timeout         time.Duration
@@ -93,14 +94,14 @@ func NewABLeMHFromConfig(other map[string]interface{}) (api.Charger, error) {
 		return nil, err
 	}
 
-	return NewABLeMH(cc.URI, cc.Device, cc.Comset, cc.Baudrate, cc.ID, cc.Timeout)
+	return NewABLeMH(ctx, cc.URI, cc.Device, cc.Comset, cc.Baudrate, cc.ID, cc.Timeout)
 }
 
-//go:generate decorate -f decorateABLeMH -b *ABLeMH -r api.Charger -t "api.Meter,CurrentPower,func() (float64, error)" -t "api.PhaseCurrents,Currents,func() (float64, float64, float64, error)"
+//go:generate go tool decorate -f decorateABLeMH -b *ABLeMH -r api.Charger -t "api.Meter,CurrentPower,func() (float64, error)" -t "api.PhaseCurrents,Currents,func() (float64, float64, float64, error)"
 
 // NewABLeMH creates ABLeMH charger
-func NewABLeMH(uri, device, comset string, baudrate int, slaveID uint8, timeout time.Duration) (api.Charger, error) {
-	conn, err := modbus.NewConnection(uri, device, comset, baudrate, modbus.Ascii, slaveID)
+func NewABLeMH(ctx context.Context, uri, device, comset string, baudrate int, slaveID uint8, timeout time.Duration) (api.Charger, error) {
+	conn, err := modbus.NewConnection(ctx, uri, device, comset, baudrate, modbus.Ascii, slaveID)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +129,7 @@ func NewABLeMH(uri, device, comset string, baudrate int, slaveID uint8, timeout 
 		return decorateABLeMH(wb, wb.currentPower, wb.currents), nil
 	}
 
-	return wb, err
+	return wb, nil
 }
 
 func (wb *ABLeMH) set(reg, val uint16) error {
@@ -157,15 +158,20 @@ func (wb *ABLeMH) Status() (api.ChargeStatus, error) {
 		return api.StatusNone, err
 	}
 
-	r := rune(b[1]>>4-0x0A) + 'A'
+	s := string(rune((b[1]>>4)-0x0A) + 'A')
 
-	switch r {
-	case 'A', 'B', 'C':
-		return api.ChargeStatus(r), nil
+	switch s {
+	case "A", "B", "C":
+		return api.ChargeStatusString(s)
 	default:
+		// ensure Outlet is re-enabled after wake-up
+		if b[1] == 0xE0 { // Outlet is disabled
+			return api.StatusB, wb.set(ablRegModifyState, 0xA1A1)
+		}
+
 		status, ok := ablStatus[b[1]]
 		if !ok {
-			status = string(r)
+			status = s
 		}
 
 		return api.StatusNone, fmt.Errorf("invalid status: %s", status)
@@ -209,11 +215,11 @@ func (wb *ABLeMH) MaxCurrentMillis(current float64) error {
 	}
 
 	// calculate duty cycle according to https://www.goingelectric.de/forum/viewtopic.php?p=1575287#p1575287
-	cur := uint16(current / 0.06)
+	curr := uint16(current / 0.06)
 
-	err := wb.set(ablRegAmpsConfig, cur)
+	err := wb.set(ablRegAmpsConfig, curr)
 	if err == nil {
-		wb.curr = cur
+		wb.curr = curr
 	}
 
 	return err

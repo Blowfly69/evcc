@@ -34,7 +34,7 @@ const (
 	maxAge           = 1800
 )
 
-var serverName = "EVCC SEMP Server " + server.Version
+var serverName = "EVCC SEMP Server " + util.Version
 
 // SEMP is the SMA SEMP server
 type SEMP struct {
@@ -342,10 +342,7 @@ func (s *SEMP) serialNumber(id int) string {
 func UniqueDeviceID() ([]byte, error) {
 	bytes := 6
 
-	mid, err := machine.ProtectedID("evcc-semp")
-	if err != nil {
-		return nil, err
-	}
+	mid := machine.ProtectedID("evcc-semp")
 
 	b, err := hex.DecodeString(mid)
 	if err != nil {
@@ -375,7 +372,7 @@ func (s *SEMP) deviceInfo(id int, lp loadpoint.API) DeviceInfo {
 	res := DeviceInfo{
 		Identification: Identification{
 			DeviceID:     s.deviceID(id),
-			DeviceName:   lp.Title(),
+			DeviceName:   lp.GetTitle(),
 			DeviceType:   sempCharger,
 			DeviceSerial: s.serialNumber(id),
 			DeviceVendor: "github.com/evcc-io/evcc",

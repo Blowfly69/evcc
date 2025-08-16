@@ -76,7 +76,7 @@ func NewHeidelbergECFromConfig(ctx context.Context, other map[string]interface{}
 
 // NewHeidelbergEC creates HeidelbergEC charger
 func NewHeidelbergEC(ctx context.Context, uri, device, comset string, baudrate int, proto modbus.Protocol, slaveID uint8) (api.Charger, error) {
-	conn, err := modbus.NewConnection(uri, device, comset, baudrate, proto, slaveID)
+	conn, err := modbus.NewConnection(ctx, uri, device, comset, baudrate, proto, slaveID)
 	if err != nil {
 		return nil, err
 	}
@@ -227,14 +227,14 @@ func (wb *HeidelbergEC) MaxCurrentMillis(current float64) error {
 		return fmt.Errorf("invalid current %.1f", current)
 	}
 
-	cur := uint16(10 * current)
+	curr := uint16(10 * current)
 
 	b := make([]byte, 2)
-	binary.BigEndian.PutUint16(b, cur)
+	binary.BigEndian.PutUint16(b, curr)
 
 	_, err := wb.conn.WriteMultipleRegisters(hecRegAmpsConfig, 1, b)
 	if err == nil {
-		wb.current = cur
+		wb.current = curr
 	}
 
 	return err

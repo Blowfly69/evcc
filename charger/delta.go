@@ -84,7 +84,7 @@ func NewDeltaFromConfig(ctx context.Context, other map[string]interface{}) (api.
 
 // NewDelta creates Delta charger
 func NewDelta(ctx context.Context, uri, device, comset string, baudrate int, proto modbus.Protocol, slaveID uint8, connector uint16) (api.Charger, error) {
-	conn, err := modbus.NewConnection(uri, device, comset, baudrate, proto, slaveID)
+	conn, err := modbus.NewConnection(ctx, uri, device, comset, baudrate, proto, slaveID)
 	if err != nil {
 		return nil, err
 	}
@@ -190,8 +190,9 @@ func (wb *Delta) statusReasonDelta() (api.Reason, error) {
 	switch encoding.Uint16(b) {
 	case 1:
 		return api.ReasonWaitingForAuthorization, nil
-	case 7:
-		return api.ReasonDisconnectRequired, nil
+		// removed due to https://github.com/evcc-io/evcc/issues/21847
+		// case 7:
+		// 	return api.ReasonDisconnectRequired, nil
 	}
 
 	return api.ReasonUnknown, nil

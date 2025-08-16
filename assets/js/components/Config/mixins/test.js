@@ -9,6 +9,7 @@ export default {
       testState: TEST_UNKNOWN,
       testError: null,
       testResult: null,
+      testTimeout: 15000, // 15s
     };
   },
   computed: {
@@ -37,7 +38,7 @@ export default {
       this.testState = TEST_RUNNING;
       try {
         const res = await testApi();
-        for (const [key, { error }] of Object.entries(res.data.result)) {
+        for (const [key, { error }] of Object.entries(res.data)) {
           if (error) {
             this.testState = TEST_FAILED;
             this.testResult = null;
@@ -45,7 +46,7 @@ export default {
             return false;
           }
         }
-        this.testResult = res.data.result;
+        this.testResult = res.data;
         this.testError = null;
         this.testState = TEST_SUCCESS;
         return true;
@@ -56,6 +57,22 @@ export default {
         this.testError = e.response?.data?.error || e.message;
       }
       return false;
+    },
+    handleCreateError(e) {
+      this.handleError(e, "create failed");
+    },
+    handleUpdateError(e) {
+      this.handleError(e, "update failed");
+    },
+    handleRemoveError(e) {
+      this.handleError(e, "remove failed");
+    },
+    handleError(e, msg) {
+      console.error(e);
+      let message = msg;
+      const { error } = e.response.data || {};
+      if (error) message += `: ${error}`;
+      alert(message);
     },
   },
 };

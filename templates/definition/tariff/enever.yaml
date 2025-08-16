@@ -2,15 +2,16 @@ template: enever
 products:
   - brand: Enever
 requirements:
-  description:
-    de: Nur für Niederlande verfügbar.
-    en: Only available for Netherlands.
   evcc: ["skiptest"]
 group: price
+countries: ["NL"]
 params:
   - name: token
     required: true
   - name: provider
+    description:
+      en: Provider
+      de: Anbieter
     type: choice
     choice:
       [
@@ -27,6 +28,7 @@ params:
         "GSL",
         "MDE",
         "NE",
+        "PE",
         "TI",
         "VDB",
         "VON",
@@ -36,6 +38,9 @@ params:
       ]
     required: true
   - preset: tariff-base
+  - name: interval
+    default: 3h
+    advanced: true
 render: |
   type: custom
   {{ include "tariff-base" . }}
@@ -55,7 +60,7 @@ render: |
               {
                 "start": .datum | strptime("%F %T") | strflocaltime("%FT%T%:z"),
                 "end":   .datum | strptime("%F %T") | strflocaltime("%FT%T%:z") | strptime("%FT%T%z") | mktime + 3600 | strflocaltime("%FT%T%:z"),
-                "price": .prijs{{ .provider }} | tonumber
+                "value": .prijs{{ .provider }} | tonumber
               }
             ] | tostring
       - name: tomorrow
@@ -68,6 +73,7 @@ render: |
               {
                 "start": .datum | strptime("%F %T") | strflocaltime("%FT%T%:z"),
                 "end":   .datum | strptime("%F %T") | strflocaltime("%FT%T%:z") | strptime("%FT%T%z") | mktime + 3600 | strflocaltime("%FT%T%:z"),
-                "price": .prijs{{ .provider }} | tonumber
+                "value": .prijs{{ .provider }} | tonumber
               }
             ] | tostring
+  interval: {{ .interval }}

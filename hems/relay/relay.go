@@ -8,8 +8,9 @@ import (
 	"github.com/evcc-io/evcc/api"
 	"github.com/evcc-io/evcc/core/circuit"
 	"github.com/evcc-io/evcc/core/site"
-	"github.com/evcc-io/evcc/provider"
+	"github.com/evcc-io/evcc/plugin"
 	"github.com/evcc-io/evcc/util"
+	"github.com/evcc-io/evcc/util/config"
 )
 
 type Relay struct {
@@ -24,7 +25,7 @@ type Relay struct {
 func New(ctx context.Context, other map[string]interface{}, site site.API) (*Relay, error) {
 	var cc struct {
 		MaxPower float64
-		Limit    provider.Config
+		Limit    plugin.Config
 	}
 
 	if err := util.DecodeOther(other, &cc); err != nil {
@@ -43,6 +44,11 @@ func New(ctx context.Context, other map[string]interface{}, site site.API) (*Rel
 		return nil, err
 	}
 
+	// register LPC-Circuit for use in config, if not already registered
+	if _, err := config.Circuits().ByName("lpc"); err != nil {
+		_ = config.Circuits().Add(config.NewStaticDevice(config.Named{Name: "lpc"}, api.Circuit(lpc)))
+	}
+
 	// wrap old root with new pc parent
 	if err := root.Wrap(lpc); err != nil {
 		return nil, err
@@ -50,7 +56,7 @@ func New(ctx context.Context, other map[string]interface{}, site site.API) (*Rel
 	site.SetCircuit(lpc)
 
 	// limit getter
-	limitG, err := provider.NewBoolGetterFromConfig(ctx, cc.Limit)
+	limitG, err := cc.Limit.BoolGetter(ctx)
 	if err != nil {
 		return nil, err
 	}

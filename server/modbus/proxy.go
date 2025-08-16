@@ -1,6 +1,7 @@
 package modbus
 
 import (
+	"context"
 	"fmt"
 	"net"
 
@@ -12,7 +13,7 @@ import (
 )
 
 func StartProxy(port int, config modbus.Settings, readOnly ReadOnlyMode) error {
-	conn, err := modbus.NewConnection(config.URI, config.Device, config.Comset, config.Baudrate, config.Protocol(), config.ID)
+	conn, err := modbus.NewConnection(context.Background(), config.URI, config.Device, config.Comset, config.Baudrate, config.Protocol(), config.ID)
 	if err != nil {
 		return err
 	}
@@ -35,10 +36,9 @@ func StartProxy(port int, config modbus.Settings, readOnly ReadOnlyMode) error {
 	h.log.DEBUG.Printf("modbus proxy for %s listening at :%d", config.String(), port)
 
 	srv, err := mbserver.New(h, mbserver.Logger(&logger{log: h.log}))
-
-	if err == nil {
-		err = srv.Start(l)
+	if err != nil {
+		return err
 	}
 
-	return err
+	return srv.Start(l)
 }

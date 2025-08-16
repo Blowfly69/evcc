@@ -5,50 +5,48 @@ import (
 	"time"
 
 	"github.com/evcc-io/evcc/api"
-	"github.com/evcc-io/evcc/provider"
 	"github.com/evcc-io/evcc/util"
 )
 
 type Provider struct {
-	statusG func() (BatteryData, error)
-	odoG    func() (OdometerData, error)
+	telemetryG func() (CarTelemetryData, error)
 }
 
 func NewProvider(log *util.Logger, api *API, vin string, timeout, cache time.Duration) *Provider {
 	v := &Provider{
-		statusG: provider.Cached(func() (BatteryData, error) {
+		telemetryG: util.Cached(func() (CarTelemetryData, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
-			return api.Status(ctx, vin)
-		}, cache),
-		odoG: provider.Cached(func() (OdometerData, error) {
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
-			defer cancel()
-			return api.Odometer(ctx, vin)
+			return api.CarTelemetry(ctx, vin)
 		}, cache),
 	}
 
 	return v
 }
 
-// Soc implements the api.Vehicle interface
+// SOC via car telemetry
 func (v *Provider) Soc() (float64, error) {
-	res, err := v.statusG()
-	return res.BatteryChargeLevelPercentage, err
+	res, err := v.telemetryG()
+	return res.Battery[0].BatteryChargeLevelPercentage, err
 }
 
 var _ api.ChargeState = (*Provider)(nil)
 
-// Range implements the api.VehicleRange interface
+// Status via car telemetry
 func (v *Provider) Status() (api.ChargeStatus, error) {
-	status, err := v.statusG()
+	status, err := v.telemetryG()
 
 	res := api.StatusA
-	if status.ChargerConnectionStatus == "CHARGER_CONNECTION_STATUS_CONNECTED" {
+
+	if len(status.Battery) == 0 {
+		return res, nil
+	}
+
+	if status.Battery[0].ChargingStatus == "CHARGER_CONNECTION_STATUS_CONNECTED" {
 		res = api.StatusB
 	}
-	if status.ChargingStatus == "CHARGING_STATUS_CHARGING" {
-		res = api.StatusB
+	if status.Battery[0].ChargingStatus == "CHARGING_STATUS_CHARGING" {
+		res = api.StatusC
 	}
 
 	return res, err
@@ -56,27 +54,24 @@ func (v *Provider) Status() (api.ChargeStatus, error) {
 
 var _ api.VehicleRange = (*Provider)(nil)
 
-// Range implements the api.VehicleRange interface
+// Range via car telemetry
 func (v *Provider) Range() (int64, error) {
-	res, err := v.statusG()
-	return int64(res.EstimatedDistanceToEmptyKm), err
+	res, err := v.telemetryG()
+	return res.Battery[0].EstimatedDistanceToEmptyKm, err
 }
 
 var _ api.VehicleOdometer = (*Provider)(nil)
 
-// Odometer implements the Provider.VehicleOdometer interface
+// Odometer via car telemetry
 func (v *Provider) Odometer() (float64, error) {
-	res, err := v.odoG()
-	return res.OdometerMeters / 1e3, err
+	res, err := v.telemetryG()
+	return float64(res.Odometer[0].OdometerMeters) / 1e3, err
 }
 
 var _ api.VehicleFinishTimer = (*Provider)(nil)
 
-// FinishTime implements the api.VehicleFinishTimer interface
+// FinishTime via car telemetry
 func (v *Provider) FinishTime() (time.Time, error) {
-	res, err := v.statusG()
-	if err != nil {
-		return time.Time{}, err
-	}
-	return time.Now().Add(time.Duration(res.EstimatedChargingTimeToFullMinutes) * time.Minute), nil
+	res, err := v.telemetryG()
+	return time.Now().Add(time.Duration(res.Battery[0].EstimatedChargingTimeToFullMinutes) * time.Minute), err
 }

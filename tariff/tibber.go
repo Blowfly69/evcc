@@ -2,7 +2,6 @@ package tariff
 
 import (
 	"context"
-	"errors"
 	"slices"
 	"sync"
 	"time"
@@ -41,7 +40,7 @@ func NewTibberFromConfig(other map[string]interface{}) (api.Tariff, error) {
 	}
 
 	if cc.Token == "" {
-		return nil, errors.New("missing token")
+		return nil, api.ErrMissingToken
 	}
 
 	if err := cc.init(); err != nil {
@@ -67,11 +66,7 @@ func NewTibberFromConfig(other map[string]interface{}) (api.Tariff, error) {
 		t.homeID = home.ID
 	}
 
-	done := make(chan error)
-	go t.run(done)
-	err := <-done
-
-	return t, err
+	return runOrError(t)
 }
 
 func (t *Tibber) run(done chan error) {
@@ -121,7 +116,7 @@ func (t *Tibber) rates(pi []tibber.Price) api.Rates {
 		ar := api.Rate{
 			Start: r.StartsAt.Local(),
 			End:   r.StartsAt.Add(time.Hour).Local(),
-			Price: price,
+			Value: price,
 		}
 		data = append(data, ar)
 	}

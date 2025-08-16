@@ -1,6 +1,7 @@
 package eebus
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"time"
@@ -9,9 +10,9 @@ import (
 	"github.com/evcc-io/evcc/api"
 	"github.com/evcc-io/evcc/core/circuit"
 	"github.com/evcc-io/evcc/core/site"
-	"github.com/evcc-io/evcc/provider"
 	"github.com/evcc-io/evcc/server/eebus"
 	"github.com/evcc-io/evcc/util"
+	"github.com/evcc-io/evcc/util/config"
 )
 
 type EEBus struct {
@@ -30,7 +31,7 @@ type EEBus struct {
 	failsafeLimit    float64
 	failsafeDuration time.Duration
 
-	heartbeat *provider.Value[struct{}]
+	heartbeat *util.Value[struct{}]
 }
 
 type Limits struct {
@@ -41,7 +42,7 @@ type Limits struct {
 }
 
 // New creates an EEBus HEMS from generic config
-func New(other map[string]interface{}, site site.API) (*EEBus, error) {
+func New(ctx context.Context, other map[string]interface{}, site site.API) (*EEBus, error) {
 	cc := struct {
 		Ski    string
 		Limits `mapstructure:",squash"`
@@ -70,17 +71,22 @@ func New(other map[string]interface{}, site site.API) (*EEBus, error) {
 		return nil, err
 	}
 
+	// register LPC-Circuit for use in config, if not already registered
+	if _, err := config.Circuits().ByName("lpc"); err != nil {
+		_ = config.Circuits().Add(config.NewStaticDevice(config.Named{Name: "lpc"}, api.Circuit(lpc)))
+	}
+
 	// wrap old root with new pc parent
 	if err := root.Wrap(lpc); err != nil {
 		return nil, err
 	}
 	site.SetCircuit(lpc)
 
-	return NewEEBus(cc.Ski, cc.Limits, lpc)
+	return NewEEBus(ctx, cc.Ski, cc.Limits, lpc)
 }
 
 // NewEEBus creates EEBus charger
-func NewEEBus(ski string, limits Limits, root api.Circuit) (*EEBus, error) {
+func NewEEBus(ctx context.Context, ski string, limits Limits, root api.Circuit) (*EEBus, error) {
 	if eebus.Instance == nil {
 		return nil, errors.New("eebus not configured")
 	}
@@ -90,7 +96,7 @@ func NewEEBus(ski string, limits Limits, root api.Circuit) (*EEBus, error) {
 		root:      root,
 		uc:        eebus.Instance.ControllableSystem(),
 		Connector: eebus.NewConnector(),
-		heartbeat: provider.NewValue[struct{}](2 * time.Minute), // LPC-031
+		heartbeat: util.NewValue[struct{}](2 * time.Minute), // LPC-031
 
 		consumptionLimit: &ucapi.LoadLimit{
 			Value:        limits.ConsumptionLimit,
@@ -101,12 +107,17 @@ func NewEEBus(ski string, limits Limits, root api.Circuit) (*EEBus, error) {
 		failsafeDuration: limits.FailsafeDurationMinimum,
 	}
 
+	// simulate a received heartbeat
+	// otherwise a heartbeat timeout is assumed when the state machine is called for the first time
+	c.heartbeat.Set(struct{}{})
+
 	if err := eebus.Instance.RegisterDevice(ski, "", c); err != nil {
 		return nil, err
 	}
 
-	if err := c.Wait(90 * time.Second); err != nil {
-		return c, err
+	if err := c.Wait(ctx); err != nil {
+		eebus.Instance.UnregisterDevice(ski, c)
+		return nil, err
 	}
 
 	// scenarios

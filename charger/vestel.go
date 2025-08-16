@@ -21,12 +21,14 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/evcc-io/evcc/api"
 	"github.com/evcc-io/evcc/util"
 	"github.com/evcc-io/evcc/util/modbus"
 	"github.com/evcc-io/evcc/util/sponsor"
+	"github.com/hashicorp/go-version"
 )
 
 const (
@@ -34,6 +36,8 @@ const (
 	vestelRegBrand           = 190 // 10
 	vestelRegModel           = 210 // 5
 	vestelRegFirmware        = 230 // 50
+	vestelRegNumberPhases    = 404
+	vestelRegPhasesSwitch    = 405
 	vestelRegChargeStatus    = 1001
 	vestelRegCableStatus     = 1004
 	vestelRegChargeTime      = 1508
@@ -41,6 +45,7 @@ const (
 	vestelRegPower           = 1020
 	vestelRegTotalEnergy     = 1036
 	vestelRegSessionEnergy   = 1502
+	vestelRegRFID            = 1516
 	vestelRegFailsafeTimeout = 2002
 	vestelRegAlive           = 6000
 	// vestelRegChargepointState = 1000
@@ -64,6 +69,8 @@ func init() {
 	registry.AddCtx("vestel", NewVestelFromConfig)
 }
 
+//go:generate go tool decorate -f decorateVestel -b *Vestel -r api.Charger -t "api.PhaseSwitcher,Phases1p3p,func(int) error" -t "api.PhaseGetter,GetPhases,func() (int, error)" -t "api.Identifier,Identify,func() (string, error)"
+
 // NewVestelFromConfig creates a Vestel charger from generic config
 func NewVestelFromConfig(ctx context.Context, other map[string]interface{}) (api.Charger, error) {
 	cc := modbus.TcpSettings{
@@ -78,8 +85,8 @@ func NewVestelFromConfig(ctx context.Context, other map[string]interface{}) (api
 }
 
 // NewVestel creates a Vestel charger
-func NewVestel(ctx context.Context, uri string, id uint8) (*Vestel, error) {
-	conn, err := modbus.NewConnection(uri, "", "", 0, modbus.Tcp, id)
+func NewVestel(ctx context.Context, uri string, id uint8) (api.Charger, error) {
+	conn, err := modbus.NewConnection(ctx, uri, "", "", 0, modbus.Tcp, id)
 	if err != nil {
 		return nil, err
 	}
@@ -97,8 +104,40 @@ func NewVestel(ctx context.Context, uri string, id uint8) (*Vestel, error) {
 		current: 6,
 	}
 
+	var (
+		phasesS func(int) error
+		phasesG func() (int, error)
+	)
+	if b, err := wb.conn.ReadInputRegisters(vestelRegNumberPhases, 1); err == nil && binary.BigEndian.Uint16(b) == 1 {
+		phasesS = wb.phases1p3p
+		phasesG = wb.getPhases
+	}
+
+	// compare firmware version to determine if RFID is available
+	var identify func() (string, error)
+
+	b, err := wb.conn.ReadInputRegisters(vestelRegFirmware, 50)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read firmware version: %w", err)
+	}
+
+	fw, err := utf16BEBytesAsString(b)
+	if err == nil {
+		fw, _, _ = strings.Cut(strings.TrimPrefix(fw, "v"), "-")
+		if v, err := version.NewSemver(fw); err == nil {
+			if v.GreaterThanOrEqual(version.Must(version.NewSemver("3.156.0"))) {
+				// firmware >= v3.156.0 supports RFID according to https://github.com/evcc-io/evcc/issues/21359
+				identify = wb.identify
+			}
+		} else {
+			log.WARN.Printf("failed to parse firmware version %q: %v", string(b), err)
+		}
+	} else {
+		log.WARN.Printf("failed to decode firmware version %q: %v", b, err)
+	}
+
 	// get failsafe timeout from charger
-	b, err := wb.conn.ReadHoldingRegisters(vestelRegFailsafeTimeout, 1)
+	b, err = wb.conn.ReadHoldingRegisters(vestelRegFailsafeTimeout, 1)
 	if err != nil {
 		return nil, fmt.Errorf("failsafe timeout: %w", err)
 	}
@@ -111,7 +150,7 @@ func NewVestel(ctx context.Context, uri string, id uint8) (*Vestel, error) {
 	}
 	go wb.heartbeat(ctx, timeout)
 
-	return wb, nil
+	return decorateVestel(wb, phasesS, phasesG, identify), nil
 }
 
 func (wb *Vestel) heartbeat(ctx context.Context, timeout time.Duration) {
@@ -269,23 +308,61 @@ func (wb *Vestel) Voltages() (float64, float64, float64, error) {
 	return wb.getPhaseValues(vestelRegVoltages, 1)
 }
 
+// phases1p3p implements the api.PhaseSwitcher interface
+func (wb *Vestel) phases1p3p(phases int) error {
+	_, err := wb.conn.WriteSingleRegister(vestelRegPhasesSwitch, uint16((phases-1)>>1))
+	return err
+}
+
+// getPhases implements the api.PhaseGetter interface
+func (wb *Vestel) getPhases() (int, error) {
+	b, err := wb.conn.ReadHoldingRegisters(vestelRegPhasesSwitch, 1)
+	if err != nil {
+		return 0, err
+	}
+	return 1 + int(binary.BigEndian.Uint16(b))<<1, nil
+}
+
+// Identify implements the api.Identifier interface
+func (wb *Vestel) identify() (string, error) {
+	b, err := wb.conn.ReadInputRegisters(vestelRegRFID, 15)
+	if err != nil {
+		return "", err
+	}
+	return utf16BEBytesAsString(b)
+}
+
 var _ api.Diagnosis = (*Vestel)(nil)
 
 // Diagnose implements the api.Diagnosis interface
 func (wb *Vestel) Diagnose() {
 	if b, err := wb.conn.ReadInputRegisters(vestelRegBrand, 10); err == nil {
-		fmt.Printf("Brand:\t%s\n", b)
+		s, _ := utf16BEBytesAsString(b)
+		fmt.Printf("Brand:\t%s\n", s)
 	}
 	if b, err := wb.conn.ReadInputRegisters(vestelRegModel, 5); err == nil {
-		fmt.Printf("Model:\t%s\n", b)
+		s, _ := utf16BEBytesAsString(b)
+		fmt.Printf("Model:\t%s\n", s)
 	}
 	if b, err := wb.conn.ReadInputRegisters(vestelRegSerial, 25); err == nil {
-		fmt.Printf("Serial:\t%s\n", b)
+		s, _ := utf16BEBytesAsString(b)
+		fmt.Printf("Serial:\t%s\n", s)
 	}
 	if b, err := wb.conn.ReadInputRegisters(vestelRegFirmware, 50); err == nil {
-		fmt.Printf("Firmware:\t%s\n", b)
+		s, _ := utf16BEBytesAsString(b)
+		fmt.Printf("Firmware:\t%s\n", s)
 	}
 	if b, err := wb.conn.ReadHoldingRegisters(vestelRegFailsafeTimeout, 1); err == nil {
-		fmt.Printf("Failsafe timeout (plain):\t%d\n", binary.BigEndian.Uint16(b))
+		fmt.Printf("Failsafe timeout:\t%#x\n", binary.BigEndian.Uint16(b))
+	}
+	if b, err := wb.conn.ReadInputRegisters(vestelRegNumberPhases, 1); err == nil {
+		fmt.Printf("Number of phases:\t%#x\n", binary.BigEndian.Uint16(b))
+	}
+	if b, err := wb.conn.ReadHoldingRegisters(vestelRegPhasesSwitch, 1); err == nil {
+		fmt.Printf("Phase switch:\t%#x\n", binary.BigEndian.Uint16(b))
+	}
+	if b, err := wb.conn.ReadInputRegisters(vestelRegRFID, 15); err == nil {
+		s, _ := utf16BEBytesAsString(b)
+		fmt.Printf("RFID:\t%s\n", s)
 	}
 }

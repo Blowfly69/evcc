@@ -9,6 +9,7 @@ import (
 	"github.com/benbjohnson/clock"
 	"github.com/evcc-io/evcc/api"
 	"github.com/evcc-io/evcc/core/coordinator"
+	"github.com/evcc-io/evcc/core/settings"
 	"github.com/evcc-io/evcc/core/soc"
 	"github.com/evcc-io/evcc/util"
 	"github.com/stretchr/testify/assert"
@@ -16,7 +17,7 @@ import (
 )
 
 func expectVehiclePublish(vehicle *api.MockVehicle) {
-	vehicle.EXPECT().Title().Return("target").AnyTimes()
+	vehicle.EXPECT().GetTitle().Return("target").AnyTimes()
 	vehicle.EXPECT().Capacity().AnyTimes()
 	vehicle.EXPECT().Icon().AnyTimes()
 	vehicle.EXPECT().Features().AnyTimes()
@@ -37,20 +38,19 @@ func TestPublishSocAndRange(t *testing.T) {
 
 	log := util.NewLogger("foo")
 	lp := &Loadpoint{
-		log:           log,
-		bus:           evbus.New(),
-		clock:         clck,
-		charger:       charger,
-		vehicle:       vehicle,
-		chargeMeter:   &Null{}, // silence nil panics
-		chargeRater:   &Null{}, // silence nil panics
-		chargeTimer:   &Null{}, // silence nil panics
-		socEstimator:  soc.NewEstimator(log, charger, vehicle, false),
-		sessionEnergy: NewEnergyMetrics(),
-		minCurrent:    minA,
-		maxCurrent:    maxA,
-		phases:        1,
-		mode:          api.ModeNow,
+		log:          log,
+		bus:          evbus.New(),
+		clock:        clck,
+		charger:      charger,
+		vehicle:      vehicle,
+		chargeMeter:  &Null{}, // silence nil panics
+		chargeRater:  &Null{}, // silence nil panics
+		chargeTimer:  &Null{}, // silence nil panics
+		socEstimator: soc.NewEstimator(log, charger, vehicle, false),
+		minCurrent:   minA,
+		maxCurrent:   maxA,
+		phases:       1,
+		mode:         api.ModeNow,
 	}
 
 	// populate channels
@@ -156,7 +156,7 @@ func TestDefaultVehicle(t *testing.T) {
 	current := 66.6
 
 	dflt := api.NewMockVehicle(ctrl)
-	dflt.EXPECT().Title().Return("default").AnyTimes()
+	dflt.EXPECT().GetTitle().Return("default").AnyTimes()
 	dflt.EXPECT().Icon().Return("").AnyTimes()
 	dflt.EXPECT().Capacity().AnyTimes()
 	dflt.EXPECT().Phases().AnyTimes()
@@ -166,14 +166,14 @@ func TestDefaultVehicle(t *testing.T) {
 	}).AnyTimes()
 
 	vehicle := api.NewMockVehicle(ctrl)
-	vehicle.EXPECT().Title().Return("target").AnyTimes()
+	vehicle.EXPECT().GetTitle().Return("target").AnyTimes()
 	vehicle.EXPECT().Icon().Return("").AnyTimes()
 	vehicle.EXPECT().Capacity().AnyTimes()
 	vehicle.EXPECT().Phases().AnyTimes()
 	vehicle.EXPECT().OnIdentified().AnyTimes()
 
-	lp := NewLoadpoint(util.NewLogger("foo"), nil)
-	lp.Mode_ = api.ModeOff // ondisconnect
+	lp := NewLoadpoint(util.NewLogger("foo"), settings.NewDatabaseSettingsAdapter("foo"))
+	lp.DefaultMode = api.ModeOff // ondisconnect
 	lp.defaultVehicle = dflt
 
 	// populate channels
@@ -184,7 +184,7 @@ func TestDefaultVehicle(t *testing.T) {
 		if v == nil {
 			return "<nil>"
 		}
-		return v.Title()
+		return v.GetTitle()
 	}
 
 	// non-default vehicle identified
@@ -243,19 +243,18 @@ func TestReconnectVehicle(t *testing.T) {
 			charger.EXPECT().Status().Return(api.StatusB, nil).AnyTimes()
 
 			lp := &Loadpoint{
-				log:           util.NewLogger("foo"),
-				bus:           evbus.New(),
-				clock:         clck,
-				charger:       charger,
-				chargeMeter:   &Null{}, // silence nil panics
-				chargeRater:   &Null{}, // silence nil panics
-				chargeTimer:   &Null{}, // silence nil panics
-				wakeUpTimer:   NewTimer(),
-				sessionEnergy: NewEnergyMetrics(),
-				minCurrent:    minA,
-				maxCurrent:    maxA,
-				phases:        1,
-				mode:          api.ModeNow,
+				log:         util.NewLogger("foo"),
+				bus:         evbus.New(),
+				clock:       clck,
+				charger:     charger,
+				chargeMeter: &Null{}, // silence nil panics
+				chargeRater: &Null{}, // silence nil panics
+				chargeTimer: &Null{}, // silence nil panics
+				wakeUpTimer: NewTimer(),
+				minCurrent:  minA,
+				maxCurrent:  maxA,
+				phases:      1,
+				mode:        api.ModeNow,
 			}
 
 			lp.coordinator = coordinator.NewAdapter(lp, coordinator.New(util.NewLogger("foo"), []api.Vehicle{vehicle}))
@@ -270,7 +269,7 @@ func TestReconnectVehicle(t *testing.T) {
 			// vehicle not updated yet
 			vehicle.MockChargeState.EXPECT().Status().Return(api.StatusA, nil)
 
-			lp.Update(0, 0, nil, false, false, 0, nil, nil)
+			lp.Update(0, 0, nil, nil, false, false, 0, nil, nil)
 			ctrl.Finish()
 
 			// detection started
@@ -284,7 +283,7 @@ func TestReconnectVehicle(t *testing.T) {
 			// vehicle not updated yet
 			vehicle.MockChargeState.EXPECT().Status().Return(api.StatusB, nil)
 
-			lp.Update(0, 0, nil, false, false, 0, nil, nil)
+			lp.Update(0, 0, nil, nil, false, false, 0, nil, nil)
 			ctrl.Finish()
 
 			// vehicle detected
