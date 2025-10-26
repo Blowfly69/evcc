@@ -62,6 +62,13 @@ type measurement struct {
 	Controllable  *bool     `json:"controllable,omitempty"`
 }
 
+var _ api.TitleDescriber = (*measurement)(nil)
+
+// GetTitle implements api.TitleDescriber interface for InfluxDB tagging
+func (m measurement) GetTitle() string {
+	return m.Title
+}
+
 var _ site.API = (*Site)(nil)
 
 // Site is the main configuration container. A site can host multiple loadpoints.
@@ -324,7 +331,9 @@ func (site *Site) restoreSettings() error {
 		}
 	}
 	if v, err := settings.Float(keys.BatteryGridChargeLimit); err == nil {
-		site.SetBatteryGridChargeLimit(&v)
+		if err := site.SetBatteryGridChargeLimit(&v); err != nil {
+			return err
+		}
 	}
 
 	// restore accumulated energy

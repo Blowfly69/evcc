@@ -110,12 +110,12 @@ func (t *Tibber) rates(pi []tibber.Price) api.Rates {
 	data := make(api.Rates, 0, len(pi))
 	for _, r := range pi {
 		price := r.Total
-		if t.Charges != 0 || t.Tax != 0 {
+		if t.Charges != 0 || t.Tax != 0 || t.Formula != "" {
 			price = t.totalPrice(r.Energy, r.StartsAt)
 		}
 		ar := api.Rate{
 			Start: r.StartsAt.Local(),
-			End:   r.StartsAt.Add(time.Hour).Local(),
+			End:   r.StartsAt.Add(SlotDuration).Local(),
 			Value: price,
 		}
 		data = append(data, ar)

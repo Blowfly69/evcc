@@ -91,10 +91,12 @@ func jsonError(w http.ResponseWriter, status int, err error) {
 	w.WriteHeader(status)
 
 	res := struct {
-		Error string `json:"error"`
-		Line  int    `json:"line,omitempty"`
+		Error       string `json:"error"`
+		Line        int    `json:"line,omitempty"`
+		IsAuthError bool   `json:"isAuthError,omitempty"`
 	}{
-		Error: err.Error(),
+		Error:       err.Error(),
+		IsAuthError: errors.Is(err, api.ErrLoginRequired) || errors.Is(err, api.ErrMissingToken),
 	}
 
 	var (
@@ -368,7 +370,10 @@ func getBackup(authObject auth.Auth) http.HandlerFunc {
 			return
 		}
 
-		settings.Persist()
+		if err := settings.Persist(); err != nil {
+			http.Error(w, "Synching DB failed", http.StatusInternalServerError)
+			return
+		}
 
 		f, err := os.Open(db.FilePath)
 		if err != nil {

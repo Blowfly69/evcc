@@ -6,9 +6,9 @@ capabilities: ["battery-control"]
 requirements:
   description:
     de: |
-      Für FEMS FENECON-Systeme ist eine kommerzielle Lizenz für die aktive Batteriesteuerung erforderlich.
+      Für FEMS FENECON-Systeme ist eine kommerzielle Lizenz für die aktive Batteriesteuerung erforderlich (REST-API).
     en: |
-      A commercial license is required for FEMS FENECON systems for active battery control.
+      A commercial license is required for FEMS FENECON systems for active battery control (REST-API).
 params:
   - name: usage
     choice: ["grid", "pv", "battery"]
@@ -33,33 +33,62 @@ params:
       en: adjusted to the API timeout
     usages: ["battery"]
     advanced: true
-  - name: maxchargepower
-    default: 4200
-  - name: maxacpower
+  - name: minsoc
+  - name: maxsoc
   - name: capacity
     advanced: true
+  - name: maxchargepower
+    default: 4200
+  - name: maxdischargepower
+  - name: maxacpower
 render: |
   type: custom
+  {{- if eq .usage "grid" }} 
   power:
     source: http
-    {{- if eq .usage "grid" }}
     uri: http://{{ .host }}/rest/channel/_sum/GridActivePower
-    {{- end }}
-    {{- if eq .usage "pv" }}
-    uri: http://{{ .host }}/rest/channel/_sum/ProductionActivePower
-    {{- end }}
-    {{- if eq .usage "battery" }}
-    uri: http://{{ .host }}/rest/channel/_sum/EssDischargePower
-    {{- end }}
     auth:
       type: basic
       user: x
       password: {{ .password }}
     jq: (.value // 0)
+  energy:
+    source: http
+    uri: http://{{ .host }}/rest/channel/_sum/GridBuyActiveEnergy
+    auth:
+      type: basic
+      user: x
+      password: {{ .password }}
+    jq: (.value / 1000 // 0) # convert Wh to kWh
+  {{- end }}
   {{- if eq .usage "pv" }}
+  power:
+    source: http
+    uri: http://{{ .host }}/rest/channel/_sum/ProductionActivePower
+    auth:
+      type: basic
+      user: x
+      password: {{ .password }}
+    jq: (.value // 0)
+  energy:
+    source: http
+    uri: http://{{ .host }}/rest/channel/_sum/ProductionActiveEnergy
+    auth:
+      type: basic
+      user: x
+      password: {{ .password }}
+    jq: (.value / 1000 // 0) # convert Wh to kWh
   maxacpower: {{ .maxacpower }} # W
   {{- end }}
   {{- if eq .usage "battery" }}
+  power:
+    source: http
+    uri: http://{{ .host }}/rest/channel/_sum/EssDischargePower
+    auth:
+      type: basic
+      user: x
+      password: {{ .password }}
+    jq: (.value // 0)
   soc:
     source: http
     uri: http://{{ .host }}/rest/channel/_sum/EssSoc
@@ -113,5 +142,9 @@ render: |
           - content-type: application/json
           body: '{"value": {{ mul .maxchargepower -1 }}}' # charge power is negative
   {{- end }}
+  minsoc: {{ .minsoc }} # %
+  maxsoc: {{ .maxsoc }} # %
+  maxchargepower: {{ .maxchargepower }} # W
+  maxdischargepower: {{ .maxdischargepower }} # W
   capacity: {{ .capacity }} # kWh
   {{- end }}
